@@ -100,9 +100,10 @@
    * Common container patterns for smart placement detection
    */
   const CONTAINER_PATTERNS = {
-    classes: ['container', 'content', 'main', 'article', 'section', 
-              'wrapper', 'hero', 'cta', 'sidebar', 'footer', 'header', 
-              'card', 'panel', 'column', 'row', 'box', 'module'],
+    classes: ['container', 'content', 'main', 'article', 'section',
+              'wrapper', 'hero', 'cta', 'sidebar', 'footer', 'header',
+              'card', 'panel', 'column', 'row', 'box', 'module', 'responsive',
+              'breakpoint', 'demo', 'test', 'width'],
     tags: ['article', 'section', 'main', 'aside', 'header', 
            'footer', 'nav', 'div[class*="container"]', 'div[class*="content"]']
   };
@@ -1441,7 +1442,7 @@
       if (CONTAINER_PATTERNS.tags.includes(tagName)) {
         score += 25;
       } else if (['div', 'section'].includes(tagName)) {
-        score += 8;
+        score += 12;  // Increased from 8 to make sections more likely
       }
 
       // Class score (0-30) - reduced to make room for responsive scoring
@@ -1449,6 +1450,14 @@
         classList.includes(pattern) || id.includes(pattern)
       );
       score += Math.min(30, classMatches.length * 15);
+
+      // Special bonus for hero sections and responsive demos
+      if (classList.includes('hero') || tagName === 'section' && classList.includes('hero')) {
+        score += 15;  // Extra bonus for hero sections
+      }
+      if (classList.includes('responsive') || classList.includes('breakpoint')) {
+        score += 10;  // Extra bonus for responsive test areas
+      }
 
       // Responsive size score (0-25) - enhanced for responsive components
       const availableWidth = rect.width;
@@ -1570,19 +1579,31 @@
       const element = document.elementFromPoint(x, y);
       if (!element) return null;
 
+      // Check if element or any parent has the ignore attribute
+      let checkElement = element;
+      while (checkElement && checkElement !== document.body) {
+        if (checkElement.hasAttribute('data-compose-ignore')) {
+          return null; // Ignore this element and all its children
+        }
+        checkElement = checkElement.parentElement;
+      }
+
       let candidates = [];
       let current = element;
       let depth = 0;
       const maxDepth = 6; // Increased for complex grids
 
       while (current && current !== document.body && depth < maxDepth) {
-        const score = this.calculatePlacementScore(current);
-        if (score > 15) {  // Lowered from 30 to 15 for more placement options
-          candidates.push({
-            element: current,
-            score,
-            isStable: this.isStableContainer(current) // New stability check
-          });
+        // Skip elements with ignore attribute
+        if (!current.hasAttribute('data-compose-ignore')) {
+          const score = this.calculatePlacementScore(current);
+          if (score > 10) {  // Lowered from 15 to 10 for even more placement options
+            candidates.push({
+              element: current,
+              score,
+              isStable: this.isStableContainer(current) // New stability check
+            });
+          }
         }
         current = current.parentElement;
         depth++;
@@ -1616,9 +1637,9 @@
       const style = window.getComputedStyle(element);
       const tagName = element.tagName.toLowerCase();
 
-      // Prefer larger, well-defined containers
+      // Prefer reasonably-sized containers (relaxed requirements)
       const rect = element.getBoundingClientRect();
-      const isLarge = rect.width > 200 && rect.height > 100;
+      const isLarge = rect.width > 150 && rect.height > 50;  // Reduced from 200x100
 
       // Prefer semantic containers
       const isSemantic = ['article', 'section', 'main', 'aside', 'div'].includes(tagName);
@@ -1628,7 +1649,8 @@
 
       // Prefer containers with class-based identification
       const classList = element.className?.toString().toLowerCase() || '';
-      const hasContainerClass = ['container', 'content', 'wrapper', 'demo'].some(cls =>
+      const hasContainerClass = ['container', 'content', 'wrapper', 'demo', 'hero',
+                                  'responsive', 'breakpoint', 'width'].some(cls =>
         classList.includes(cls)
       );
 
