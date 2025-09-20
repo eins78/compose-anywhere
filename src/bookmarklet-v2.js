@@ -60,6 +60,7 @@
       this.attachShadow({ mode: 'open' });
       this.currentTarget = null;
       this.isActive = false;
+      this.selectorGenerator = new SelectorGenerator();
     }
 
     connectedCallback() {
@@ -117,16 +118,33 @@
             opacity: 0.9;
             margin-left: 8px;
           }
+
+          .selector-preview {
+            font-family: monospace;
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+            display: inline-block;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+          }
         </style>
         <div class="overlay" id="overlay">
           <div class="label">
             Select target element
             <span class="hint">[Space/Enter]</span>
+            <span class="selector-preview" id="selectorPreview"></span>
           </div>
         </div>
       `;
 
       this.overlay = this.shadowRoot.getElementById('overlay');
+      this.selectorPreview = this.shadowRoot.getElementById('selectorPreview');
     }
 
     /**
@@ -153,6 +171,18 @@
         this.overlay.classList.remove('focused');
       }
 
+      // Generate selectors and show preview
+      if (this.selectorPreview && this.selectorGenerator) {
+        const selectors = this.selectorGenerator.generateSelectors(element);
+        const previewSelectors = selectors.slice(0, 2).map(s => s.selector);
+        if (previewSelectors.length > 0) {
+          this.selectorPreview.textContent = previewSelectors.join(', ');
+          this.selectorPreview.style.display = 'inline-block';
+        } else {
+          this.selectorPreview.style.display = 'none';
+        }
+      }
+
       this.currentTarget = element;
     }
 
@@ -161,6 +191,10 @@
      */
     hideOverlay() {
       this.overlay.style.opacity = '0';
+      if (this.selectorPreview) {
+        this.selectorPreview.textContent = '';
+        this.selectorPreview.style.display = 'none';
+      }
       this.currentTarget = null;
     }
 
