@@ -627,7 +627,98 @@
         'inside-end': 'beforeend'
       }[this.selectedPosition] || 'afterend';
 
-      const jsCode = `const target = document.querySelector('${this.selectedSelector.selector}');
+      const jsCode = `// White Paper Widget - Self-contained component
+if (!customElements.get('white-paper-widget')) {
+  class WhitePaperWidget extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.render();
+    }
+    render() {
+      this.shadowRoot.innerHTML = \`
+        <style>
+          :host {
+            display: block;
+            width: 100%;
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 20px 0;
+          }
+          .widget {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            max-width: 100%;
+          }
+          .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            padding: 20px;
+            color: white;
+          }
+          .title {
+            margin: 0 0 8px 0;
+            font-size: 20px;
+            font-weight: 600;
+          }
+          .subtitle {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 14px;
+          }
+          .content {
+            padding: 30px;
+          }
+          .description {
+            color: #4b5563;
+            margin: 0 0 20px 0;
+            line-height: 1.6;
+          }
+          .email-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+          }
+          .download-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+          }
+          .download-button:hover {
+            background: #2563eb;
+          }
+        </style>
+        <div class="widget">
+          <div class="header">
+            <div class="title">📄 Download Our White Paper</div>
+            <div class="subtitle">Modern Web Development Insights</div>
+          </div>
+          <div class="content">
+            <p class="description">
+              Get expert insights on building responsive web applications with the latest technologies.
+            </p>
+            <input type="email" class="email-input" placeholder="Enter your email">
+            <button class="download-button">Download Now</button>
+          </div>
+        </div>
+      \`;
+    }
+  }
+  customElements.define('white-paper-widget', WhitePaperWidget);
+}
+
+const target = document.querySelector('${this.selectedSelector.selector}');
 if (target) {
   const widget = document.createElement('white-paper-widget');
   target.insertAdjacentElement('${positionMethod}', widget);
@@ -1379,7 +1470,37 @@ if (target) {
      * @param {Array} selectors - Array of selector objects
      */
     setSelectors(selectors) {
-      this.selectors = selectors;
+      // Deduplicate selectors by combining those with same selector string
+      const deduplicatedMap = new Map();
+
+      selectors.forEach(selector => {
+        const key = selector.selector;
+        if (deduplicatedMap.has(key)) {
+          const existing = deduplicatedMap.get(key);
+          // Combine types and keep highest confidence
+          existing.types.push(selector.type);
+          if (selector.confidence === 'high' && existing.confidence !== 'high') {
+            existing.confidence = selector.confidence;
+          }
+        } else {
+          deduplicatedMap.set(key, {
+            selector: selector.selector,
+            types: [selector.type],
+            confidence: selector.confidence,
+            // Keep original selector object for compatibility
+            originalSelector: selector
+          });
+        }
+      });
+
+      // Convert back to array with combined types
+      this.selectors = Array.from(deduplicatedMap.values()).map(item => ({
+        selector: item.selector,
+        type: item.types.join(', '),
+        confidence: item.confidence,
+        // Use the first original selector for other properties
+        ...item.originalSelector
+      }));
 
       // If not connected yet, wait for connectedCallback
       if (!this.isConnected) {
@@ -1399,7 +1520,7 @@ if (target) {
 
       list.innerHTML = '';
 
-      selectors.forEach((selector, index) => {
+      this.selectors.forEach((selector, index) => {
         const option = document.createElement('div');
         option.className = 'selector-option';
         option.tabIndex = index === 0 ? 0 : -1;  // Only first item in tab order
