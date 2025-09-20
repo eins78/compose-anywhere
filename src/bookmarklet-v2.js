@@ -109,6 +109,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             white-space: nowrap;
             user-select: none;
+            pointer-events: none;  /* Prevent label from blocking mouse events */
           }
 
           .hint {
