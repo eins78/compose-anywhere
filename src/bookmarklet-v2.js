@@ -246,7 +246,7 @@
 
           .position-buttons {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.5rem;
           }
 
@@ -401,13 +401,17 @@
               <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
               <span>Before</span>
             </button>
-            <button class="position-button ${this.selectedPosition === 'inside' ? 'active' : ''}" data-position="inside">
-              <svg viewBox="0 0 24 24"><path d="M12 2l-5.5 9h11z"/></svg>
-              <span>Inside</span>
-            </button>
             <button class="position-button ${this.selectedPosition === 'after' ? 'active' : ''}" data-position="after">
               <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
               <span>After</span>
+            </button>
+            <button class="position-button ${this.selectedPosition === 'inside-start' ? 'active' : ''}" data-position="inside-start">
+              <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5-5-5-5H3zm18 0h-9l5 5-5 5h9V9z"/></svg>
+              <span>Inside Start</span>
+            </button>
+            <button class="position-button ${this.selectedPosition === 'inside-end' ? 'active' : ''}" data-position="inside-end">
+              <svg viewBox="0 0 24 24"><path d="M3 9v10h18V9H3zm4 6l5-5 5 5H7z"/></svg>
+              <span>Inside End</span>
             </button>
           </div>
         </div>
@@ -557,7 +561,8 @@
       const positionMethod = {
         'before': 'beforebegin',
         'after': 'afterend',
-        'inside': 'beforeend'
+        'inside-start': 'afterbegin',
+        'inside-end': 'beforeend'
       }[this.selectedPosition] || 'afterend';
 
       const jsCode = `const target = document.querySelector('${this.selectedSelector.selector}');
@@ -2979,8 +2984,9 @@ if (target) {
       // Determine insertion method based on position
       const insertMethod = {
         'before': 'beforebegin',
-        'inside': 'beforeend',
-        'after': 'afterend'
+        'after': 'afterend',
+        'inside-start': 'afterbegin',
+        'inside-end': 'beforeend'
       }[this.selectedPosition] || 'afterend';
 
       // Insert the widget
