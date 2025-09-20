@@ -1238,8 +1238,14 @@
        */
       this.currentPosition = null;
 
+      /**
+       * Target stability tracking
+       */
+      this.candidateTarget = null;
+      this.candidateCount = 0;
+
       this.boundHandlers = {
-        mouseMove: this.debounce(this.handleMouseMove.bind(this), 120),
+        mouseMove: this.handleMouseMove.bind(this), // Remove debounce wrapper
         click: this.handleClick.bind(this),
         escape: this.handleEscape.bind(this)
       };
@@ -1468,7 +1474,7 @@
     }
 
     /**
-     * Find suitable placement target near mouse position
+     * Find suitable placement target near mouse position with enhanced grid support
      * @param {number} x - Mouse X coordinate
      * @param {number} y - Mouse Y coordinate
      * @returns {HTMLElement|null} The target element or null
@@ -1480,20 +1486,59 @@
       let candidates = [];
       let current = element;
       let depth = 0;
-      const maxDepth = 5;
+      const maxDepth = 6; // Increased for complex grids
 
       while (current && current !== document.body && depth < maxDepth) {
         const score = this.calculatePlacementScore(current);
         if (score > 15) {  // Lowered from 30 to 15 for more placement options
-          candidates.push({ element: current, score });
+          candidates.push({
+            element: current,
+            score,
+            isStable: this.isStableContainer(current) // New stability check
+          });
         }
         current = current.parentElement;
         depth++;
       }
 
+      // Prefer stable containers in scoring
+      candidates.forEach(candidate => {
+        if (candidate.isStable) {
+          candidate.score += 5; // Bonus for stable containers
+        }
+      });
+
       // Sort by score and return best match
       candidates.sort((a, b) => b.score - a.score);
       return candidates[0]?.element || element;
+    }
+
+    /**
+     * Check if container is stable for placement (reduces flickering)
+     * @param {HTMLElement} element - Element to check
+     * @returns {boolean} Whether container is stable
+     */
+    isStableContainer(element) {
+      const style = window.getComputedStyle(element);
+      const tagName = element.tagName.toLowerCase();
+
+      // Prefer larger, well-defined containers
+      const rect = element.getBoundingClientRect();
+      const isLarge = rect.width > 200 && rect.height > 100;
+
+      // Prefer semantic containers
+      const isSemantic = ['article', 'section', 'main', 'aside', 'div'].includes(tagName);
+
+      // Prefer containers with explicit display modes
+      const hasLayout = ['flex', 'grid', 'block'].includes(style.display);
+
+      // Prefer containers with class-based identification
+      const classList = element.className?.toString().toLowerCase() || '';
+      const hasContainerClass = ['container', 'content', 'wrapper', 'demo'].some(cls =>
+        classList.includes(cls)
+      );
+
+      return isLarge && (isSemantic || hasLayout || hasContainerClass);
     }
 
     /**
@@ -1659,24 +1704,51 @@
     }
 
     /**
-     * Handle mouse move event with smooth updates
+     * Handle mouse move event with stable target detection
      * @param {MouseEvent} e - The mouse event
      */
     handleMouseMove(e) {
       if (this.mode !== 'placement') return;
 
-      // Cancel previous animation frame if pending
-      if (this.animationFrame) {
-        cancelAnimationFrame(this.animationFrame);
+      // Simple throttle with requestAnimationFrame to prevent excessive calls
+      if (!this.animationFrame) {
+        this.animationFrame = requestAnimationFrame(() => {
+          this.animationFrame = null;
+          this.updateTargetFromMouse(e.clientX, e.clientY);
+        });
+      }
+    }
+
+    /**
+     * Update target from mouse position with stability logic
+     * @param {number} x - Mouse X coordinate
+     * @param {number} y - Mouse Y coordinate
+     */
+    updateTargetFromMouse(x, y) {
+      // Temporarily disable pointer events on preview to avoid interference
+      if (this.previewElement) {
+        this.previewElement.style.pointerEvents = 'none';
       }
 
-      // Use requestAnimationFrame for smooth updates
-      this.animationFrame = requestAnimationFrame(() => {
-        const target = this.findPlacementTarget(e.clientX, e.clientY);
-        if (target && target !== this.currentTarget) {
-          this.updatePreview(target);
-        }
-      });
+      const target = this.findPlacementTarget(x, y);
+
+      // Re-enable pointer events
+      if (this.previewElement) {
+        this.previewElement.style.pointerEvents = '';
+      }
+
+      // Add stability buffer - only update if target is different for 2+ frames
+      if (target !== this.candidateTarget) {
+        this.candidateTarget = target;
+        this.candidateCount = 1;
+      } else if (this.candidateCount < 2) {
+        this.candidateCount++;
+      }
+
+      // Only update if target is stable for 2 frames OR significantly different
+      if (this.candidateCount >= 2 && target !== this.currentTarget) {
+        this.updatePreview(target);
+      }
     }
 
     /**
