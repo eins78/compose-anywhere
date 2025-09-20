@@ -11,9 +11,9 @@
     "dev": "claude 'Start interactive development mode with hot reload'",
     "docs": "claude 'Generate documentation from TSDoc comments'",
     "bookmarklet": "node scripts/create-bookmarklet.js",
-    "serve": "npx serve . -p 8080",
+    "serve": "serve . -p 8080",
     "format": "prettier --write '**/*.{js,json,md}'",
-    "clean": "rm -rf screenshots/ docs/generated/"
+    "clean": "rm -rf screenshots/ docs/generated/ examples/generated/"
   },
   "keywords": [
     "component",
@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "prettier": "^3.2.4",
+    "puppeteer": "^24.22.0",
     "serve": "^14.2.1"
   },
   "engines": {
@@ -51,8 +52,14 @@
   "claude": {
     "mcp": {
       "primary": "puppeteer",
-      "required": ["puppeteer", "filesystem"],
-      "optional": ["git", "playwright"]
+      "required": [
+        "puppeteer",
+        "filesystem"
+      ],
+      "optional": [
+        "git",
+        "playwright"
+      ]
     },
     "workflows": {
       "preferred": "test-workflow.sh",

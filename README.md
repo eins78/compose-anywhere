@@ -36,6 +36,7 @@ compose-anywhere/
 ├── docs/
 │   ├── platform-integration.md
 │   └── brand-guidelines.md
+├── screenshots/             # Test screenshots
 ├── dist/                    # Generated files
 ├── package.json
 ├── .mcp.json                # MCP configuration for Claude Code

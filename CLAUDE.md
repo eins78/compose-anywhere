@@ -208,3 +208,4 @@ The goal is to continuously optimize our development velocity. Every minute save
 **Most Efficient Tool**: Puppeteer MCP
 **Time Saved This Week**: ~4 hours
 **Next Review**: Weekly (every Monday)
+- use pnpm
