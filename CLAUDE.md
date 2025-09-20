@@ -223,6 +223,18 @@ const emailInput = widget.shadowRoot.querySelector('.email-input');
 emailInput.value = 'test@example.com';
 ```
 
+### Issue: Background process management ⚠️ IMPORTANT
+**Problem**: Using `pkill` or bash commands to kill background processes
+**Solution**: Use native KillShell tool instead
+```bash
+# ❌ WRONG - Don't use pkill
+pkill -f "python3 -m http.server"
+
+# ✅ CORRECT - Use KillShell tool
+KillShell(shell_id="abc123")
+```
+**Why**: Native tools provide proper cleanup and process tracking in Claude Code environment
+
 ## Next Experiments to Try
 
 - [ ] Test with `@modelcontextprotocol/server-everart` for UI mockups
@@ -268,3 +280,8 @@ The goal is to continuously optimize our development velocity. Every minute save
 - use pnpm for package management
 - keep the repo clean. while testing and experimenting, output into the git-ignored tmp folder. use subfolders per task. only after a task is done, copy out created files if they are very important.
 - organize test screenshots in tmp/[test-name-date]/ folders
+
+### Documentation Guidelines
+- **Keep docs up-to-date while developing** - Always update relevant documentation when making code changes
+- **Add new .md files in docs/ only for major new concepts** - Don't create documentation files for minor features or temporary changes
+- **Update existing documentation** - Prefer updating README.md, CLAUDE.md, or existing docs over creating new files
