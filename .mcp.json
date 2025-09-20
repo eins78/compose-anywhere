@@ -13,10 +13,6 @@
       "env": {
         "ALLOWED_DIRS": "./src,./examples,./docs,./scripts"
       }
-    },
-    "git": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-git"]
     }
   },
   "customCommands": {
