@@ -319,7 +319,7 @@
               <span>After</span>
             </button>
           </div>
-          <div class="hint">Use arrow keys to navigate • Enter to confirm • Esc to cancel</div>
+          <div class="hint">Click to preview position • Esc to finish</div>
         </div>
       `;
 
@@ -416,7 +416,7 @@
         }
       });
 
-      // Dispatch selection event
+      // Immediately update the widget position (live preview)
       this.dispatchEvent(new CustomEvent('position-selected', {
         detail: { position }
       }));
@@ -430,13 +430,30 @@
       this.targetElement = target;
       const rect = target.getBoundingClientRect();
 
-      // Position menu near the target
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+      // Position menu at the bottom-right corner of the target element
+      // This keeps it attached to the selected element
+      const menuWidth = 200; // Approximate width of menu
+      const menuHeight = 250; // Approximate height of menu with confirm buttons
 
-      this.menuContainer.style.left = `${centerX}px`;
-      this.menuContainer.style.top = `${centerY}px`;
-      this.menuContainer.style.transform = 'translate(-50%, -50%)';
+      // Calculate position to keep menu within viewport and near element
+      let x = rect.right - 20;
+      let y = rect.bottom - 20;
+
+      // Adjust if menu would go off-screen
+      if (x + menuWidth > window.innerWidth) {
+        x = rect.left - menuWidth + 20;
+      }
+      if (y + menuHeight > window.innerHeight) {
+        y = rect.top - menuHeight + 20;
+      }
+
+      // Ensure minimum distance from viewport edges
+      x = Math.max(10, Math.min(x, window.innerWidth - menuWidth - 10));
+      y = Math.max(10, Math.min(y, window.innerHeight - menuHeight - 10));
+
+      this.menuContainer.style.left = `${x}px`;
+      this.menuContainer.style.top = `${y}px`;
+      this.menuContainer.style.transform = 'none';
 
       // Auto-focus first button
       setTimeout(() => {
@@ -2242,16 +2259,33 @@
       document.body.appendChild(this.positionMenu);
       this.positionMenu.showForTarget(this.targetElement);
 
-      // Handle position selection
+      // Handle position selection - live preview
       this.positionMenu.addEventListener('position-selected', (e) => {
         this.selectedPosition = e.detail.position;
-        this.completePlacement();
+        this.updateWidgetPosition();
       });
 
-      // Handle cancel
+      // Handle cancel/escape - complete the placement
       this.positionMenu.addEventListener('cancel', () => {
-        this.cleanup();
+        if (this.selectedPosition) {
+          this.completePlacement();
+        } else {
+          this.cleanup();
+        }
       });
+    }
+
+    /**
+     * Update widget position for live preview
+     */
+    updateWidgetPosition() {
+      // Remove existing widget if any
+      document.querySelectorAll('white-paper-widget').forEach(w => w.remove());
+
+      // Place widget in new position
+      this.placeWidget();
+
+      console.log('Widget position updated:', this.selectedPosition);
     }
 
     /**
@@ -2264,9 +2298,6 @@
       console.log('Target:', this.targetElement);
       console.log('Selector:', this.selectedSelector);
       console.log('Position:', this.selectedPosition);
-
-      // Actually place the widget on the page for visual preview
-      this.placeWidget();
 
       // Generate embed code
       const embedCode = this.generateEmbedCode();
@@ -2295,9 +2326,11 @@
      * Place the actual widget on the page for preview
      */
     placeWidget() {
-      // Create the widget
+      // First, ensure WhitePaperWidget is defined
+      this.ensureWhitePaperWidget();
+
+      // Create the widget (it will render its own content via shadow DOM)
       const widget = document.createElement('white-paper-widget');
-      widget.innerHTML = CONFIG.component;
 
       // Determine insertion method based on position
       const insertMethod = {
@@ -2311,6 +2344,148 @@
 
       // Add a subtle animation for visual feedback
       widget.style.animation = 'fadeIn 0.3s ease-out';
+    }
+
+    /**
+     * Ensure WhitePaperWidget custom element is defined
+     */
+    ensureWhitePaperWidget() {
+      if (!customElements.get('white-paper-widget')) {
+        class WhitePaperWidget extends HTMLElement {
+          constructor() {
+            super();
+            this.attachShadow({ mode: 'open' });
+            this.render();
+          }
+
+          render() {
+            this.shadowRoot.innerHTML = `
+              <style>
+                :host {
+                  display: block;
+                  max-width: 400px;
+                  width: 100%;
+                  font-family: system-ui, -apple-system, sans-serif;
+                }
+
+                .widget {
+                  background: white;
+                  border-radius: 12px;
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                  overflow: hidden;
+                  border: 1px solid #e5e7eb;
+                }
+
+                .header {
+                  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+                  padding: 20px;
+                  color: white;
+                }
+
+                .icon {
+                  font-size: 32px;
+                  margin-bottom: 12px;
+                }
+
+                .title {
+                  margin: 0 0 8px 0;
+                  font-size: 20px;
+                  font-weight: 600;
+                }
+
+                .subtitle {
+                  margin: 0;
+                  opacity: 0.9;
+                  font-size: 14px;
+                }
+
+                .content {
+                  padding: 20px;
+                }
+
+                .description {
+                  color: #4b5563;
+                  margin: 0 0 20px 0;
+                  line-height: 1.6;
+                }
+
+                .input-group {
+                  margin-bottom: 16px;
+                }
+
+                .email-input {
+                  width: 100%;
+                  padding: 10px 14px;
+                  border: 1px solid #d1d5db;
+                  border-radius: 6px;
+                  font-size: 14px;
+                  transition: border-color 0.2s;
+                }
+
+                .email-input:focus {
+                  outline: none;
+                  border-color: #3b82f6;
+                  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                }
+
+                .submit-btn {
+                  width: 100%;
+                  padding: 12px 20px;
+                  background: #3b82f6;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  font-size: 14px;
+                  font-weight: 600;
+                  cursor: pointer;
+                  transition: background 0.2s;
+                }
+
+                .submit-btn:hover {
+                  background: #2563eb;
+                }
+
+                .submit-btn:focus {
+                  outline: none;
+                  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+                }
+              </style>
+
+              <div class="widget">
+                <div class="header">
+                  <div class="icon">📄</div>
+                  <h2 class="title">Download Our White Paper</h2>
+                  <p class="subtitle">Modern Web Development Insights</p>
+                </div>
+
+                <div class="content">
+                  <p class="description">
+                    Get expert insights on building responsive web applications
+                    with the latest technologies.
+                  </p>
+
+                  <form onsubmit="event.preventDefault(); alert('Demo: White paper would be sent to: ' + this.email.value);">
+                    <div class="input-group">
+                      <input
+                        type="email"
+                        name="email"
+                        class="email-input"
+                        placeholder="Enter your email"
+                        required
+                      />
+                    </div>
+                    <button type="submit" class="submit-btn">
+                      Download Now
+                    </button>
+                  </form>
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        customElements.define('white-paper-widget', WhitePaperWidget);
+      }
     }
 
     /**
