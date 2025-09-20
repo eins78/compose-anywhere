@@ -125,20 +125,21 @@
             background: rgba(0, 0, 0, 0.1);
             padding: 2px 6px;
             border-radius: 3px;
-            margin-left: 8px;
-            display: inline-block;
+            margin-top: 4px;
+            display: block;
             max-width: 300px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            vertical-align: middle;
           }
         </style>
         <div class="overlay" id="overlay">
           <div class="label">
-            Select target element
-            <span class="hint">[Space/Enter]</span>
-            <span class="selector-preview" id="selectorPreview"></span>
+            <div>
+              Select target element
+              <span class="hint">[Space/Enter]</span>
+            </div>
+            <div class="selector-preview" id="selectorPreview"></div>
           </div>
         </div>
       `;
