@@ -99,7 +99,7 @@
 
           .menu-container.expanded {
             width: 320px;
-            max-height: 480px;
+            max-height: calc(100vh - 40px);
             display: flex;
             flex-direction: column;
           }
