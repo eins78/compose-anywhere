@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compose Anywhere v2 - Two-Step Placement Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .test-controls {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 20px;
+      z-index: 100;
+    }
+
+    .test-controls h1 {
+      margin: 0 0 10px 0;
+      color: #1a202c;
+      font-size: 24px;
+    }
+
+    .test-controls p {
+      margin: 0 0 15px 0;
+      color: #4a5568;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #4b5563;
+    }
+
+    .btn-secondary:hover {
+      background: #d1d5db;
+    }
+
+    .btn:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    }
+
+    .test-content {
+      display: grid;
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    .hero-section {
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      color: white;
+      padding: 60px 40px;
+      text-align: center;
+    }
+
+    .hero-section h2 {
+      margin: 0 0 15px 0;
+      font-size: 36px;
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .two-column {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .main-content {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+    }
+
+    .sidebar {
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 20px;
+      height: fit-content;
+    }
+
+    .article-card {
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .article-card h3 {
+      margin: 0 0 10px 0;
+      color: #1f2937;
+    }
+
+    .article-card p {
+      margin: 0;
+      color: #6b7280;
+    }
+
+    .widget-area {
+      background: #f3f4f6;
+      border: 2px dashed #9ca3af;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    .keyboard-hint {
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      color: #92400e;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 15px;
+      font-size: 13px;
+    }
+
+    .keyboard-hint strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .grid-item {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .grid-item[data-section] {
+      border-color: #3b82f6;
+    }
+
+    #status {
+      padding: 10px;
+      background: #f0f9ff;
+      border-radius: 6px;
+      color: #1e40af;
+      margin-top: 10px;
+      font-family: monospace;
+      font-size: 13px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #dbeafe;
+      color: #1e40af;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="test-controls" data-compose-ignore>
+      <h1>🎯 Compose Anywhere v2 Test</h1>
+      <p>Two-step placement with keyboard navigation support</p>
+
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="loadBookmarkletV2()">
+          <span>🚀</span>
+          <span>Load v2 Bookmarklet</span>
+        </button>
+        <button class="btn btn-secondary" onclick="loadOriginal()">
+          <span>⏮</span>
+          <span>Load Original</span>
+        </button>
+        <button class="btn btn-secondary" onclick="clearComponents()">
+          <span>🧹</span>
+          <span>Clear All</span>
+        </button>
+      </div>
+
+      <div class="keyboard-hint">
+        <strong>Keyboard Navigation:</strong>
+        Tab through elements → Space/Enter to select target → Arrow keys in position menu → Escape to cancel
+      </div>
+
+      <div id="status">Ready to test...</div>
+    </div>
+
+    <div class="test-content">
+      <!-- Hero Section -->
+      <div class="card hero-section" id="hero-section">
+        <h2>Hero Section</h2>
+        <p>Perfect for prominent component placement</p>
+        <span class="badge">ID: hero-section</span>
+      </div>
+
+      <!-- Two Column Layout -->
+      <div class="two-column">
+        <div class="main-content">
+          <h2>Main Content Area</h2>
+
+          <article class="article-card" data-section="article-1">
+            <h3>Article with Data Attribute</h3>
+            <p>This card has a data-section attribute for precise targeting.</p>
+          </article>
+
+          <article class="article-card">
+            <h3>Regular Article</h3>
+            <p>Standard article without special attributes.</p>
+          </article>
+
+          <div class="widget-area" data-compose-ignore>
+            <p>Widget Area (ignored by selector)</p>
+          </div>
+        </div>
+
+        <aside class="sidebar" data-role="sidebar">
+          <h3>Sidebar</h3>
+          <p>Semantic aside element with data-role attribute</p>
+
+          <div class="widget-area">
+            <p>Sidebar Widget Slot</p>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Grid Layout -->
+      <div class="card">
+        <h3>Grid Layout Test</h3>
+        <div class="test-grid">
+          <div class="grid-item" data-section="grid-1">
+            <h4>Grid Item 1</h4>
+            <p>With data attribute</p>
+          </div>
+          <div class="grid-item">
+            <h4>Grid Item 2</h4>
+            <p>Regular item</p>
+          </div>
+          <div class="grid-item">
+            <h4>Grid Item 3</h4>
+            <p>Regular item</p>
+          </div>
+          <div class="grid-item" id="special-grid-item">
+            <h4>Grid Item 4</h4>
+            <p>With unique ID</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Section -->
+      <footer class="card" style="text-align: center; background: #1f2937; color: white;">
+        <h3>Footer Section</h3>
+        <p>Semantic footer element for testing</p>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    // Status display
+    function updateStatus(message, type = 'info') {
+      const status = document.getElementById('status');
+      const icons = {
+        info: 'ℹ️',
+        success: '✅',
+        error: '❌',
+        loading: '⏳'
+      };
+      status.innerHTML = `${icons[type] || ''} ${message}`;
+    }
+
+    // Load v2 bookmarklet
+    function loadBookmarkletV2() {
+      updateStatus('Loading Compose Anywhere v2...', 'loading');
+
+      // Remove any existing instance
+      if (window.__composeAnywhereV2) {
+        window.__composeAnywhereV2.cleanup();
+      }
+
+      const script = document.createElement('script');
+      script.src = '../src/bookmarklet-v2.js';
+      script.onload = () => {
+        updateStatus('Compose Anywhere v2 loaded! Use Tab key or mouse to select targets.', 'success');
+      };
+      script.onerror = () => {
+        updateStatus('Failed to load bookmarklet v2', 'error');
+      };
+      document.head.appendChild(script);
+    }
+
+    // Load original bookmarklet
+    function loadOriginal() {
+      updateStatus('Loading original bookmarklet...', 'loading');
+
+      // Remove any existing instance
+      if (window.__composeAnywhereController) {
+        window.__composeAnywhereController.cleanup();
+      }
+
+      const script = document.createElement('script');
+      script.src = '../src/bookmarklet.js';
+      script.onload = () => {
+        updateStatus('Original bookmarklet loaded! Move mouse to see preview.', 'success');
+      };
+      script.onerror = () => {
+        updateStatus('Failed to load original bookmarklet', 'error');
+      };
+      document.head.appendChild(script);
+    }
+
+    // Clear all placed components
+    function clearComponents() {
+      // Remove v2 elements
+      document.querySelectorAll('target-selector, placement-position-menu, selector-chooser').forEach(el => el.remove());
+
+      // Remove v1 elements
+      document.querySelectorAll('component-preview, placement-wrapper, placement-menu, embed-modal').forEach(el => el.remove());
+
+      // Remove white paper widgets
+      document.querySelectorAll('white-paper-widget').forEach(el => el.remove());
+
+      updateStatus('All components cleared', 'success');
+    }
+
+    // Keyboard shortcut for quick testing
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '2') {
+          e.preventDefault();
+          loadBookmarkletV2();
+        } else if (e.key === '1') {
+          e.preventDefault();
+          loadOriginal();
+        } else if (e.key === '0') {
+          e.preventDefault();
+          clearComponents();
+        }
+      }
+    });
+
+    // Show keyboard shortcuts on load
+    console.log('🎯 Keyboard Shortcuts:');
+    console.log('Ctrl/Cmd + 2: Load v2 bookmarklet');
+    console.log('Ctrl/Cmd + 1: Load original bookmarklet');
+    console.log('Ctrl/Cmd + 0: Clear all components');
+  </script>
+</body>
+</html>
