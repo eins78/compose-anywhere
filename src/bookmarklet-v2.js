@@ -99,6 +99,8 @@
           .menu-container.expanded {
             width: 320px;
             max-height: 480px;
+            display: flex;
+            flex-direction: column;
           }
 
           .toggle-button {
@@ -126,6 +128,9 @@
           .menu-content {
             padding: 1rem;
             display: none;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
           }
 
           .expanded .menu-content {
@@ -164,6 +169,29 @@
 
           .section {
             margin-bottom: 1.25rem;
+          }
+
+          .section:last-child {
+            margin-bottom: 0;
+          }
+
+          /* Custom scrollbar for menu content */
+          .menu-content::-webkit-scrollbar {
+            width: 6px;
+          }
+
+          .menu-content::-webkit-scrollbar-track {
+            background: #f3f4f6;
+            border-radius: 3px;
+          }
+
+          .menu-content::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+          }
+
+          .menu-content::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
           }
 
           .section-label {
