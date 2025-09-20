@@ -28,18 +28,19 @@ Perfect for embedding any type of component:
 ```
 compose-anywhere/
 ├── src/
-│   ├── bookmarklet.js      # Main placement tool code
-│   ├── components/          # Web components
-│   │   ├── preview.js
-│   │   ├── menu.js
-│   │   └── modal.js
-│   └── utils/
-│       └── selectors.js
+│   └── bookmarklet.js       # Main placement tool code (all-in-one)
 ├── examples/
 │   └── test.html            # Test page for development
+├── scripts/
+│   └── create-bookmarklet.js # Convert to bookmarklet URL
+├── docs/
+│   ├── platform-integration.md
+│   └── brand-guidelines.md
+├── dist/                    # Generated files
 ├── package.json
 ├── .mcp.json                # MCP configuration for Claude Code
 ├── CLAUDE.md                # Claude Code workflow documentation
+├── test-workflow.sh         # Automated testing script
 ├── .gitignore
 └── README.md
 ```

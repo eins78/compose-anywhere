@@ -10,12 +10,8 @@
     "filesystem": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem"],
-      "config": {
-        "paths": [
-          "./src",
-          "./examples",
-          "./docs"
-        ]
+      "env": {
+        "ALLOWED_DIRS": "./src,./examples,./docs,./scripts"
       }
     },
     "git": {
@@ -26,7 +22,7 @@
   "customCommands": {
     "test-bookmarklet": {
       "description": "Test the bookmarklet on a sample page",
-      "script": "claude 'Use puppeteer to navigate to examples/test.html and execute the bookmarklet'"
+      "script": "claude 'Use puppeteer to navigate to examples/test.html and execute src/bookmarklet.js'"
     },
     "test-live": {
       "description": "Test bookmarklet on a live website",
