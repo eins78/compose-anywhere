@@ -63,8 +63,6 @@
       this.targetElement = null;
       this.selectedSelector = null;
       this.selectedPosition = 'after'; // Default position
-      this.availableContainers = [];
-      this.currentContainerIndex = 0;
     }
 
     connectedCallback() {
@@ -177,43 +175,7 @@
             margin-bottom: 0.5rem;
           }
 
-          .container-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.75rem;
-          }
-
-          .nav-button {
-            background: #f3f4f6;
-            border: none;
-            border-radius: 6px;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all var(--animation-fast);
-          }
-
-          .nav-button:hover:not(:disabled) {
-            background: #e5e7eb;
-          }
-
-          .nav-button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-          }
-
-          .nav-button svg {
-            width: 16px;
-            height: 16px;
-            fill: #374151;
-          }
-
           .container-info {
-            flex: 1;
             padding: 0.5rem;
             background: #f9fafb;
             border-radius: 6px;
@@ -223,6 +185,35 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            margin-bottom: 0.5rem;
+          }
+
+          .new-target-button {
+            width: 100%;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.5rem;
+            font-size: 12px;
+            color: #374151;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+          }
+
+          .new-target-button:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+          }
+
+          .new-target-button svg {
+            width: 16px;
+            height: 16px;
+            fill: #6b7280;
           }
 
           .position-buttons {
@@ -363,20 +354,16 @@
       return `
         <div class="section">
           <div class="section-label">Target Container</div>
-          <div class="container-controls">
-            <button class="nav-button" id="prevContainer" ${this.currentContainerIndex === 0 ? 'disabled' : ''}>
-              <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-            </button>
-            <div class="container-info" title="${this.getContainerDescription()}">
-              ${this.getContainerDescription()}
-            </div>
-            <button class="nav-button" id="nextContainer" ${this.currentContainerIndex >= this.availableContainers.length - 1 ? 'disabled' : ''}>
-              <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-            </button>
+          <div class="container-info" title="${this.getContainerDescription()}">
+            ${this.getContainerDescription()}
           </div>
           ${this.selectedSelector ? `
             <div class="selector-info">${this.selectedSelector.selector}</div>
           ` : ''}
+          <button class="new-target-button">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+            Choose New Target
+          </button>
         </div>
 
         <div class="section">
@@ -441,12 +428,10 @@
         }
       });
 
-      // Container navigation
+      // New target button
       this.shadowRoot.addEventListener('click', (e) => {
-        if (e.target.closest('#prevContainer')) {
-          this.cycleContainer(-1);
-        } else if (e.target.closest('#nextContainer')) {
-          this.cycleContainer(1);
+        if (e.target.closest('.new-target-button')) {
+          this.requestNewTarget();
         }
       });
 
@@ -491,30 +476,20 @@
       }
     }
 
-    setTarget(element, selector, containers) {
+    setTarget(element, selector) {
       this.targetElement = element;
       this.selectedSelector = selector;
-      this.availableContainers = containers || [element];
-      this.currentContainerIndex = 0;
       this.expand();
       this.render();
       this.setupEventListeners();
     }
 
-    cycleContainer(direction) {
-      const newIndex = this.currentContainerIndex + direction;
-      if (newIndex >= 0 && newIndex < this.availableContainers.length) {
-        this.currentContainerIndex = newIndex;
-        this.targetElement = this.availableContainers[newIndex];
+    requestNewTarget() {
+      // Dispatch event to request new target selection
+      this.dispatchEvent(new CustomEvent('request-new-target'));
 
-        // Dispatch event for container change
-        this.dispatchEvent(new CustomEvent('container-changed', {
-          detail: { element: this.targetElement, index: newIndex }
-        }));
-
-        this.render();
-        this.setupEventListeners();
-      }
+      // Collapse the menu during selection
+      this.collapse();
     }
 
     updatePosition(position) {
@@ -2507,7 +2482,6 @@ if (target) {
       this.targetElement = null;
       this.selectedSelector = null;
       this.selectedPosition = 'after'; // Default position
-      this.availableContainers = [];
 
       this.focusManager = new FocusManager();
       this.selectorGenerator = new SelectorGenerator();
@@ -2559,17 +2533,9 @@ if (target) {
         this.updateWidgetPosition();
       });
 
-      this.floatingMenu.addEventListener('container-changed', (e) => {
-        this.targetElement = e.detail.element;
-        this.targetSelector.showOverlay(this.targetElement, false);
-
-        // Regenerate selectors for new container
-        const selectors = this.selectorGenerator.generateSelectors(this.targetElement);
-        if (selectors.length > 0) {
-          this.selectedSelector = selectors[0];
-          this.floatingMenu.setTarget(this.targetElement, this.selectedSelector, this.availableContainers);
-          this.placeWidget();
-        }
+      this.floatingMenu.addEventListener('request-new-target', () => {
+        // Clear current selection and restart target selection
+        this.restartTargetSelection();
       });
 
       // Setup target selection mode
@@ -2824,9 +2790,6 @@ if (target) {
       this.targetElement = element;
       this.state = 'choosing-selector';
 
-      // Find available containers (parent elements that could hold the widget)
-      this.availableContainers = this.findAvailableContainers(element);
-
       // Hide target selector
       this.targetSelector.deactivate();
 
@@ -2882,7 +2845,7 @@ if (target) {
       this.state = 'complete';
 
       // Update floating menu with selection
-      this.floatingMenu.setTarget(this.targetElement, this.selectedSelector, this.availableContainers);
+      this.floatingMenu.setTarget(this.targetElement, this.selectedSelector);
 
       // Place the widget with default position
       this.placeWidget();
@@ -2905,6 +2868,32 @@ if (target) {
       console.log('Target:', this.targetElement);
       console.log('Selector:', this.selectedSelector);
       console.log('Position:', this.selectedPosition);
+    }
+
+    /**
+     * Restart target selection for choosing a new target
+     */
+    restartTargetSelection() {
+      // Remove existing widget and blocker
+      document.querySelectorAll('white-paper-widget').forEach(w => w.remove());
+      document.querySelectorAll('.compose-anywhere-blocker').forEach(b => b.remove());
+
+      // Reset state
+      this.state = 'selecting-target';
+      this.targetElement = null;
+      this.selectedSelector = null;
+
+      // Reactivate target selector
+      if (!this.targetSelector) {
+        this.targetSelector = document.createElement('target-selector');
+        document.body.appendChild(this.targetSelector);
+      }
+      this.targetSelector.activate();
+
+      // Re-setup target selection
+      this.setupTargetSelection();
+
+      console.log('Restarted target selection');
     }
 
     /**
