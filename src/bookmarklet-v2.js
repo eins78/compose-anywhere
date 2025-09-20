@@ -806,13 +806,56 @@
         });
       }
 
-      // Class selector (unique combination)
+      // Contextual class selector (parent class + element class)
+      const contextualClassSelector = this.generateContextualClassSelector(element);
+      if (contextualClassSelector) {
+        selectors.push({
+          type: 'Contextual Class',
+          selector: contextualClassSelector,
+          confidence: this.isUniqueSelector(contextualClassSelector) ? 'high' : 'medium'
+        });
+      }
+
+      // Ancestor context selector (nearest ID/unique ancestor + element)
+      const ancestorSelector = this.generateAncestorContextSelector(element);
+      if (ancestorSelector) {
+        selectors.push({
+          type: 'Ancestor Context',
+          selector: ancestorSelector,
+          confidence: 'high'
+        });
+      }
+
+      // Hybrid semantic + class selector
+      const hybridSelector = this.generateHybridSelector(element);
+      if (hybridSelector) {
+        selectors.push({
+          type: 'Semantic + Class',
+          selector: hybridSelector,
+          confidence: this.isUniqueSelector(hybridSelector) ? 'high' : 'medium'
+        });
+      }
+
+      // Simple class selector (try to make unique with pseudo-selectors)
       const classSelector = this.generateClassSelector(element);
       if (classSelector) {
+        const uniqueClassSelector = this.makeUniqueWithPseudo(element, classSelector);
+        if (uniqueClassSelector) {
+          selectors.push({
+            type: uniqueClassSelector.includes(':') ? 'Class + Pseudo' : 'Class',
+            selector: uniqueClassSelector,
+            confidence: this.isUniqueSelector(uniqueClassSelector) ? 'high' : 'low'
+          });
+        }
+      }
+
+      // Full context path with classes
+      const fullContextPath = this.generateFullContextPath(element);
+      if (fullContextPath) {
         selectors.push({
-          type: 'Class',
-          selector: classSelector,
-          confidence: this.isUniqueSelector(classSelector) ? 'high' : 'medium'
+          type: 'Full Context',
+          selector: fullContextPath,
+          confidence: 'medium'
         });
       }
 
@@ -832,21 +875,23 @@
         selectors.push({
           type: 'Semantic Path',
           selector: semanticSelector,
-          confidence: 'medium'
+          confidence: 'low'
         });
       }
 
-      // Path selector with nth-child
+      // Path selector with nth-child (last resort)
       const pathSelector = this.generatePathSelector(element);
       if (pathSelector) {
         selectors.push({
-          type: 'Path',
+          type: 'nth-child Path',
           selector: pathSelector,
           confidence: 'low'
         });
       }
 
-      return selectors;
+      // Filter out non-unique selectors and sort by usefulness
+      const uniqueSelectors = this.filterUniqueSelectors(selectors);
+      return this.sortSelectorsByUsefulness(uniqueSelectors);
     }
 
     /**
@@ -956,14 +1001,371 @@
     }
 
     /**
+     * Generate contextual class selector (parent class + element class)
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Contextual class selector
+     */
+    generateContextualClassSelector(element) {
+      const elementClass = this.getMostMeaningfulClass(element);
+      if (!elementClass) return null;
+
+      let parent = element.parentElement;
+      let depth = 0;
+
+      while (parent && parent !== document.body && depth < 2) {
+        const parentClass = this.getMostMeaningfulClass(parent);
+        if (parentClass) {
+          // Try parent + element combination
+          const selector = `.${parentClass} .${elementClass}`;
+          if (this.isUniqueSelector(selector)) {
+            return selector;
+          }
+
+          // Try with parent tag for more specificity
+          const parentTag = parent.tagName.toLowerCase();
+          if (['aside', 'article', 'section', 'main', 'nav'].includes(parentTag)) {
+            return `${parentTag}.${parentClass} .${elementClass}`;
+          }
+        }
+        parent = parent.parentElement;
+        depth++;
+      }
+
+      return null;
+    }
+
+    /**
+     * Generate ancestor context selector (find nearest ID/unique ancestor)
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Ancestor context selector
+     */
+    generateAncestorContextSelector(element) {
+      const elementClass = this.getMostMeaningfulClass(element);
+      const elementTag = element.tagName.toLowerCase();
+      let elementSelector = elementClass ? `.${elementClass}` : elementTag;
+
+      let ancestor = element.parentElement;
+      let depth = 0;
+
+      while (ancestor && ancestor !== document.body && depth < 4) {
+        // Check for ID
+        if (ancestor.id) {
+          return `#${CSS.escape(ancestor.id)} ${elementSelector}`;
+        }
+
+        // Check for unique class combination
+        const ancestorClass = this.getMostMeaningfulClass(ancestor);
+        if (ancestorClass) {
+          const selector = `.${ancestorClass} ${elementSelector}`;
+          if (this.isUniqueSelector(selector)) {
+            return selector;
+          }
+        }
+
+        ancestor = ancestor.parentElement;
+        depth++;
+      }
+
+      return null;
+    }
+
+    /**
+     * Generate hybrid semantic + class selector
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Hybrid selector
+     */
+    generateHybridSelector(element) {
+      const tagName = element.tagName.toLowerCase();
+      const elementClass = this.getMostMeaningfulClass(element);
+
+      // For semantic elements, combine with class
+      if (['aside', 'article', 'section', 'main', 'nav', 'header', 'footer'].includes(tagName)) {
+        if (elementClass) {
+          return `${tagName}.${elementClass}`;
+        }
+        return tagName;
+      }
+
+      // For div/span with meaningful class, check parent semantic context
+      if (elementClass && (tagName === 'div' || tagName === 'span')) {
+        let parent = element.parentElement;
+        let depth = 0;
+
+        while (parent && parent !== document.body && depth < 2) {
+          const parentTag = parent.tagName.toLowerCase();
+          if (['aside', 'article', 'section', 'main', 'nav'].includes(parentTag)) {
+            const parentClass = this.getMostMeaningfulClass(parent);
+            if (parentClass) {
+              return `${parentTag}.${parentClass} .${elementClass}`;
+            }
+            return `${parentTag} .${elementClass}`;
+          }
+          parent = parent.parentElement;
+          depth++;
+        }
+      }
+
+      return null;
+    }
+
+    /**
+     * Generate full context path using classes
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Full context path
+     */
+    generateFullContextPath(element) {
+      const path = [];
+      let current = element;
+      let depth = 0;
+
+      while (current && current !== document.body && depth < 4) {
+        const meaningfulClass = this.getMostMeaningfulClass(current);
+        if (meaningfulClass) {
+          path.unshift(`.${meaningfulClass}`);
+        } else {
+          const tagName = current.tagName.toLowerCase();
+          if (['aside', 'article', 'section', 'main', 'nav'].includes(tagName)) {
+            path.unshift(tagName);
+          }
+        }
+        current = current.parentElement;
+        depth++;
+      }
+
+      // Only return if we have at least 2 levels
+      if (path.length >= 2) {
+        return path.join(' ');
+      }
+
+      return null;
+    }
+
+    /**
+     * Get the most meaningful class from an element
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Most meaningful class name
+     */
+    getMostMeaningfulClass(element) {
+      if (!element.className || typeof element.className !== 'string') {
+        return null;
+      }
+
+      const classes = element.className.trim().split(/\s+/);
+
+      // Priority order for meaningful classes
+      const priorities = [
+        // Specific UI components
+        'widget-area', 'widget', 'sidebar', 'main-content', 'content-area',
+        // Layout classes
+        'container', 'wrapper', 'content', 'main', 'aside',
+        // Component classes
+        'card', 'article-card', 'hero-section', 'hero',
+        // Grid classes
+        'grid-item', 'column', 'row',
+        // Generic but useful
+        'section', 'header', 'footer'
+      ];
+
+      // Find highest priority class
+      for (const priority of priorities) {
+        const found = classes.find(c => c === priority || c.includes(priority));
+        if (found && !found.startsWith('compose-')) {
+          return CSS.escape(found);
+        }
+      }
+
+      // Return first non-compose class if no priority match
+      const firstValid = classes.find(c => c && !c.startsWith('compose-'));
+      return firstValid ? CSS.escape(firstValid) : null;
+    }
+
+    /**
+     * Sort selectors by usefulness and confidence
+     * @param {Array} selectors - Array of selector objects
+     * @returns {Array} Sorted selectors
+     */
+    sortSelectorsByUsefulness(selectors) {
+      const priority = {
+        'ID': 1,
+        'Ancestor Context': 2,
+        'Contextual Class': 3,
+        'Semantic + Class': 4,
+        'Data Attribute': 5,
+        'Full Context': 6,
+        'Class': 7,
+        'Class + Pseudo': 8,
+        'Semantic Path': 9,
+        'nth-child Path': 10
+      };
+
+      return selectors.sort((a, b) => {
+        // First sort by uniqueness
+        const aUnique = this.isUniqueSelector(a.selector);
+        const bUnique = this.isUniqueSelector(b.selector);
+        if (aUnique && !bUnique) return -1;
+        if (!aUnique && bUnique) return 1;
+
+        // Then by priority
+        return (priority[a.type] || 10) - (priority[b.type] || 10);
+      });
+    }
+
+    /**
+     * Try to make a selector unique using pseudo-selectors
+     * @param {HTMLElement} element - Target element
+     * @param {string} baseSelector - Base selector to enhance
+     * @returns {string|null} Enhanced selector or null if can't make unique
+     */
+    makeUniqueWithPseudo(element, baseSelector) {
+      // First check if base selector is already unique
+      if (this.isUniqueSelector(baseSelector)) {
+        return baseSelector;
+      }
+
+      // Get all elements matching the base selector
+      const matches = document.querySelectorAll(baseSelector);
+      const matchArray = Array.from(matches);
+      const elementIndex = matchArray.indexOf(element);
+
+      if (elementIndex === -1) return null;
+
+      // Try different pseudo-selector strategies
+      const pseudoStrategies = [];
+
+      // Strategy 1: :first-child / :last-child
+      if (element.parentElement) {
+        const siblings = Array.from(element.parentElement.children);
+        if (element === siblings[0]) {
+          pseudoStrategies.push(`${baseSelector}:first-child`);
+        }
+        if (element === siblings[siblings.length - 1]) {
+          pseudoStrategies.push(`${baseSelector}:last-child`);
+        }
+      }
+
+      // Strategy 2: :first-of-type / :last-of-type
+      if (element.parentElement) {
+        const sameTypeSiblings = Array.from(element.parentElement.children)
+          .filter(el => el.tagName === element.tagName);
+        if (element === sameTypeSiblings[0]) {
+          pseudoStrategies.push(`${baseSelector}:first-of-type`);
+        }
+        if (element === sameTypeSiblings[sameTypeSiblings.length - 1]) {
+          pseudoStrategies.push(`${baseSelector}:last-of-type`);
+        }
+      }
+
+      // Strategy 3: :nth-child(n)
+      if (element.parentElement) {
+        const siblings = Array.from(element.parentElement.children);
+        const nthIndex = siblings.indexOf(element) + 1;
+        if (nthIndex > 0) {
+          pseudoStrategies.push(`${baseSelector}:nth-child(${nthIndex})`);
+        }
+      }
+
+      // Strategy 4: :nth-of-type(n)
+      if (element.parentElement) {
+        const sameTypeSiblings = Array.from(element.parentElement.children)
+          .filter(el => el.tagName === element.tagName);
+        const nthTypeIndex = sameTypeSiblings.indexOf(element) + 1;
+        if (nthTypeIndex > 0) {
+          pseudoStrategies.push(`${baseSelector}:nth-of-type(${nthTypeIndex})`);
+        }
+      }
+
+      // Strategy 5: :only-child / :only-of-type
+      if (element.parentElement) {
+        const siblings = Array.from(element.parentElement.children);
+        if (siblings.length === 1) {
+          pseudoStrategies.push(`${baseSelector}:only-child`);
+        }
+        const sameTypeSiblings = siblings.filter(el => el.tagName === element.tagName);
+        if (sameTypeSiblings.length === 1) {
+          pseudoStrategies.push(`${baseSelector}:only-of-type`);
+        }
+      }
+
+      // Test each strategy for uniqueness
+      for (const selector of pseudoStrategies) {
+        if (this.isUniqueSelector(selector) && this.matchesElement(selector, element)) {
+          return selector;
+        }
+      }
+
+      // If no pseudo-selector works, try with parent context + pseudo
+      if (element.parentElement) {
+        const parentClass = this.getMostMeaningfulClass(element.parentElement);
+        if (parentClass) {
+          const contextSelector = `.${parentClass} > ${baseSelector}`;
+          if (this.isUniqueSelector(contextSelector)) {
+            return contextSelector;
+          }
+
+          // Try parent + pseudo combinations
+          for (const pseudo of [':first-child', ':last-child', ':only-child']) {
+            const combinedSelector = `.${parentClass} > ${baseSelector}${pseudo}`;
+            if (this.isUniqueSelector(combinedSelector) && this.matchesElement(combinedSelector, element)) {
+              return combinedSelector;
+            }
+          }
+        }
+      }
+
+      // If still not unique, return null to filter it out
+      return null;
+    }
+
+    /**
+     * Filter out non-unique selectors
+     * @param {Array} selectors - Array of selector objects
+     * @returns {Array} Filtered array with only unique selectors
+     */
+    filterUniqueSelectors(selectors) {
+      return selectors.filter(s => {
+        // Keep selectors that are unique
+        if (this.isUniqueSelector(s.selector)) {
+          return true;
+        }
+
+        // For non-unique selectors, only keep if confidence is explicitly marked as acceptable
+        // or if it's a fallback selector type
+        if (s.type === 'nth-child Path' && s.confidence === 'low') {
+          // Keep nth-child as absolute last resort
+          return true;
+        }
+
+        // Filter out non-unique selectors
+        return false;
+      });
+    }
+
+    /**
+     * Check if a selector matches a specific element
+     * @param {string} selector - CSS selector
+     * @param {HTMLElement} element - Element to check
+     * @returns {boolean} Whether selector matches the element
+     */
+    matchesElement(selector, element) {
+      try {
+        const matches = document.querySelectorAll(selector);
+        return Array.from(matches).includes(element);
+      } catch {
+        return false;
+      }
+    }
+
+    /**
      * Check if selector is unique in document
      * @param {string} selector - CSS selector
      * @returns {boolean} Whether selector is unique
      */
     isUniqueSelector(selector) {
       try {
-        return document.querySelectorAll(selector).length === 1;
-      } catch {
+        const matches = document.querySelectorAll(selector);
+        return matches.length === 1;
+      } catch (e) {
+        console.warn('Invalid selector:', selector, e);
         return false;
       }
     }
