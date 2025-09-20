@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookmarklet Installer - Compose Anywhere</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="color"],
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            min-height: 200px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+        }
+
+        input[type="color"] {
+            width: 60px;
+            height: 35px;
+            padding: 2px;
+        }
+
+        .color-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .button {
+            background: #0066cc;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        .button:hover {
+            background: #0052a3;
+        }
+
+        #bookmarklet-output {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+
+        #bookmarklet-link {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .instructions {
+            background: #f0f7ff;
+            border: 1px solid #d0e0f0;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        .preview {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+
+        #preview-container {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bookmarklet Installer</h1>
+    <p>Configure your component and generate a custom bookmarklet.</p>
+
+    <div class="instructions">
+        <strong>How this works:</strong>
+        <ol>
+            <li>Customize the component HTML below (or keep the default)</li>
+            <li>Adjust colors and dimensions if needed</li>
+            <li>Click "Generate Bookmarklet"</li>
+            <li>Drag the generated link to your bookmarks bar</li>
+        </ol>
+    </div>
+
+    <form id="config-form">
+        <h2>Component HTML</h2>
+        <div class="form-group">
+            <label for="component-html">Component Code (will be wrapped in Shadow DOM)</label>
+            <textarea id="component-html" placeholder="Enter your component HTML...">
+<div class="widget">
+  <header class="header">
+    <div class="icon">📄</div>
+    <div class="header-content">
+      <h2 class="title">Download Our White Paper</h2>
+      <p class="subtitle">Modern Web Development Insights</p>
+    </div>
+  </header>
+  <div class="content">
+    <p class="description">
+      Get expert insights on building responsive, accessible web applications.
+    </p>
+    <form class="form" onsubmit="event.preventDefault(); alert('Form submitted!')">
+      <input type="email" placeholder="Enter your email" class="email-input" required>
+      <button type="submit" class="submit-btn">Download PDF</button>
+    </form>
+  </div>
+</div></textarea>
+        </div>
+
+        <h2>Basic Styling</h2>
+        <div class="form-group">
+            <label for="primary-color">Primary Color</label>
+            <div class="color-group">
+                <input type="color" id="primary-color" value="#3b82f6">
+                <input type="text" id="primary-color-text" value="#3b82f6" pattern="^#[0-9A-Fa-f]{6}$">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="bg-color">Background Color</label>
+            <div class="color-group">
+                <input type="color" id="bg-color" value="#ffffff">
+                <input type="text" id="bg-color-text" value="#ffffff" pattern="^#[0-9A-Fa-f]{6}$">
+            </div>
+        </div>
+
+        <h2>Dimensions</h2>
+        <div class="form-group">
+            <label for="min-width">Min Width (px)</label>
+            <input type="number" id="min-width" value="280" min="200" max="800">
+        </div>
+
+        <div class="form-group">
+            <label for="max-width">Max Width (px)</label>
+            <input type="number" id="max-width" value="600" min="300" max="1200">
+        </div>
+
+        <button type="button" class="button" onclick="generateBookmarklet()">Generate Bookmarklet</button>
+    </form>
+
+    <div id="bookmarklet-output" style="display: none;">
+        <h2>Your Custom Bookmarklet</h2>
+        <p>Drag this link to your bookmarks bar:</p>
+        <a id="bookmarklet-link" href="#">Compose Anywhere (Custom)</a>
+        <p><small>Or copy the URL from the link above.</small></p>
+    </div>
+
+    <div class="preview">
+        <h2>Preview</h2>
+        <div id="preview-container"></div>
+    </div>
+
+    <script type="module" src="js/installer.js"></script>
+</body>
+</html>
