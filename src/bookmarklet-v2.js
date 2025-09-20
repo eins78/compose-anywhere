@@ -2926,6 +2926,15 @@ if (target) {
     reopenSelectorChooser() {
       if (!this.targetElement || !this.availableSelectors) return;
 
+      // Remove any existing selector chooser first
+      if (this.selectorChooser) {
+        this.selectorChooser.remove();
+        this.selectorChooser = null;
+      }
+
+      // Remove any orphaned selector choosers
+      document.querySelectorAll('selector-chooser').forEach(chooser => chooser.remove());
+
       // Show selector chooser with current selectors
       this.selectorChooser = document.createElement('selector-chooser');
       this.selectorChooser.setSelectors(this.availableSelectors);
@@ -2939,14 +2948,18 @@ if (target) {
         // Update widget position
         this.updateWidgetPosition();
         // Remove chooser
-        this.selectorChooser.remove();
-        this.selectorChooser = null;
+        if (this.selectorChooser) {
+          this.selectorChooser.remove();
+          this.selectorChooser = null;
+        }
       });
 
       // Handle cancel
       this.selectorChooser.addEventListener('cancel', () => {
-        this.selectorChooser.remove();
-        this.selectorChooser = null;
+        if (this.selectorChooser) {
+          this.selectorChooser.remove();
+          this.selectorChooser = null;
+        }
       });
     }
 
