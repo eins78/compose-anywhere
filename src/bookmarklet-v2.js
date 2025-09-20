@@ -169,7 +169,8 @@
      */
     activate() {
       this.isActive = true;
-      this.style.pointerEvents = 'auto';
+      // Keep pointer-events always none to avoid interference
+      this.style.pointerEvents = 'none';
     }
 
     /**
@@ -1486,6 +1487,9 @@
       this.positionMenu = null;
       this.selectorChooser = null;
 
+      // Hover state management
+      this.currentHoverTarget = null;
+
       // Event handlers bound
       this.handleMouseMove = this.handleMouseMove.bind(this);
       this.handleClick = this.handleClick.bind(this);
@@ -1547,17 +1551,31 @@
      */
     findSelectableElements() {
       const elements = [];
-      const allElements = document.querySelectorAll('*');
 
-      allElements.forEach(el => {
+      // Define selectors for meaningful container elements
+      const containerSelectors = [
+        'article', 'section', 'aside', 'nav', 'header', 'footer', 'main',
+        '[data-section]', '[data-role]', '[id]',
+        '.card', '.article-card', '.grid-item', '.widget-area',
+        '.hero-section', '.sidebar', '.main-content'
+      ];
+
+      // Query for specific semantic elements and components
+      const candidates = document.querySelectorAll(containerSelectors.join(', '));
+
+      candidates.forEach(el => {
         // Skip our own elements
         if (el.tagName.includes('-') && el.tagName.toLowerCase().includes('compose')) {
           return;
         }
 
-        // Skip if has ignore attribute
-        if (el.hasAttribute('data-compose-ignore')) {
-          return;
+        // Skip if element or any parent has ignore attribute
+        let current = el;
+        while (current) {
+          if (current.hasAttribute && current.hasAttribute('data-compose-ignore')) {
+            return;
+          }
+          current = current.parentElement;
         }
 
         // Skip if too small
@@ -1575,21 +1593,55 @@
         elements.push(el);
       });
 
+      // Also add any large div containers as fallback
+      document.querySelectorAll('div').forEach(el => {
+        // Only add divs that are containers (have children and reasonable size)
+        if (el.children.length > 0 && !elements.includes(el)) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width >= 200 && rect.height >= 100) {
+            // Check for ignore attribute
+            let current = el;
+            let shouldSkip = false;
+            while (current) {
+              if (current.hasAttribute && current.hasAttribute('data-compose-ignore')) {
+                shouldSkip = true;
+                break;
+              }
+              current = current.parentElement;
+            }
+
+            if (!shouldSkip) {
+              const style = window.getComputedStyle(el);
+              if (style.display !== 'none' && style.visibility !== 'hidden') {
+                elements.push(el);
+              }
+            }
+          }
+        }
+      });
+
       return elements;
     }
 
     /**
-     * Handle mouse move during target selection
+     * Handle mouse move during target selection - simplified approach
      * @param {MouseEvent} event - Mouse event
      */
     handleMouseMove(event) {
       if (this.state !== 'selecting-target') return;
 
-      const target = this.getElementAtPoint(event.clientX, event.clientY);
-      if (target && this.focusManager.focusableElements.includes(target)) {
-        this.targetSelector.showOverlay(target, false);
-      } else {
-        this.targetSelector.hideOverlay();
+      // Get the actual selectable element (might be a parent)
+      const element = this.getSelectableElementAt(event.clientX, event.clientY);
+
+      // Only update if target has changed
+      if (element !== this.currentHoverTarget) {
+        if (element) {
+          this.targetSelector.showOverlay(element, false);
+          this.currentHoverTarget = element;
+        } else {
+          this.targetSelector.hideOverlay();
+          this.currentHoverTarget = null;
+        }
       }
     }
 
@@ -1603,8 +1655,8 @@
       event.preventDefault();
       event.stopPropagation();
 
-      const target = this.getElementAtPoint(event.clientX, event.clientY);
-      if (target && this.focusManager.focusableElements.includes(target)) {
+      const target = this.getSelectableElementAt(event.clientX, event.clientY);
+      if (target) {
         this.selectTarget(target);
       }
     }
@@ -1656,24 +1708,59 @@
 
     /**
      * Get element at point, ignoring our UI elements
+     * Ultra-thin implementation without pointer-events toggling
      * @param {number} x - X coordinate
      * @param {number} y - Y coordinate
      * @returns {HTMLElement|null} Element at point
      */
     getElementAtPoint(x, y) {
-      // Temporarily hide our UI elements
-      if (this.targetSelector) {
-        this.targetSelector.style.pointerEvents = 'none';
+      // Get all elements at point
+      const elements = document.elementsFromPoint(x, y);
+
+      // Find first element that's not our UI
+      for (const element of elements) {
+        // Skip our custom elements
+        if (element.tagName === 'TARGET-SELECTOR' ||
+            element.tagName === 'PLACEMENT-POSITION-MENU' ||
+            element.tagName === 'SELECTOR-CHOOSER') {
+          continue;
+        }
+        // Skip elements inside our shadow roots
+        if (element.getRootNode() instanceof ShadowRoot) {
+          const host = element.getRootNode().host;
+          if (host.tagName === 'TARGET-SELECTOR' ||
+              host.tagName === 'PLACEMENT-POSITION-MENU' ||
+              host.tagName === 'SELECTOR-CHOOSER') {
+            continue;
+          }
+        }
+        return element;
       }
 
-      const element = document.elementFromPoint(x, y);
+      return null;
+    }
 
-      // Restore pointer events
-      if (this.targetSelector) {
-        this.targetSelector.style.pointerEvents = 'auto';
+    /**
+     * Get the actual selectable element at a point
+     * This walks up the DOM tree to find a focusable parent
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @returns {HTMLElement|null} Selectable element or null
+     */
+    getSelectableElementAt(x, y) {
+      let element = this.getElementAtPoint(x, y);
+
+      if (!element) return null;
+
+      // Walk up the DOM tree to find a selectable parent
+      while (element && element !== document.body) {
+        if (this.focusManager.focusableElements.includes(element)) {
+          return element;
+        }
+        element = element.parentElement;
       }
 
-      return element;
+      return null;
     }
 
     /**
