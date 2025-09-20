@@ -246,16 +246,16 @@
 
           .position-buttons {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.5rem;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.375rem;
           }
 
           .position-button {
             background: #f3f4f6;
             border: 2px solid transparent;
-            border-radius: 8px;
-            padding: 0.75rem;
-            font-size: 12px;
+            border-radius: 6px;
+            padding: 0.5rem 0.25rem;
+            font-size: 10px;
             font-weight: 500;
             color: #374151;
             cursor: pointer;
@@ -263,7 +263,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
+            gap: 2px;
+            min-width: 0;
           }
 
           .position-button:hover {
@@ -277,9 +278,14 @@
           }
 
           .position-button svg {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             fill: currentColor;
+          }
+
+          .position-button span {
+            line-height: 1;
+            white-space: nowrap;
           }
 
           .export-buttons {
@@ -398,20 +404,20 @@
           <div class="section-label">Widget Position</div>
           <div class="position-buttons">
             <button class="position-button ${this.selectedPosition === 'before' ? 'active' : ''}" data-position="before">
-              <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg>
               <span>Before</span>
             </button>
             <button class="position-button ${this.selectedPosition === 'after' ? 'active' : ''}" data-position="after">
-              <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
               <span>After</span>
             </button>
             <button class="position-button ${this.selectedPosition === 'inside-start' ? 'active' : ''}" data-position="inside-start">
-              <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5-5-5-5H3zm18 0h-9l5 5-5 5h9V9z"/></svg>
-              <span>Inside Start</span>
+              <svg viewBox="0 0 24 24"><path d="M8 7v10l8-5z"/></svg>
+              <span>Start</span>
             </button>
             <button class="position-button ${this.selectedPosition === 'inside-end' ? 'active' : ''}" data-position="inside-end">
-              <svg viewBox="0 0 24 24"><path d="M3 9v10h18V9H3zm4 6l5-5 5 5H7z"/></svg>
-              <span>Inside End</span>
+              <svg viewBox="0 0 24 24"><path d="M16 7v10l-8-5z"/></svg>
+              <span>End</span>
             </button>
           </div>
         </div>
