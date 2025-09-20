@@ -18,6 +18,9 @@ git clone https://github.com/eins78/compose-anywhere.git
 cd compose-anywhere
 claude mcp add puppeteer  # Or use the .mcp.json file
 
+# Start local server (REQUIRED for testing)
+pnpm serve   # Runs on http://localhost:8080
+
 # Use automated test workflow (FASTEST)
 chmod +x test-workflow.sh
 ./test-workflow.sh
@@ -164,6 +167,17 @@ claude "Update the CSS, test it, and fix any issues found"
 
 ## Common Issues & Solutions
 
+### Issue: Window size too small when testing
+**Solution**: Set viewport to desktop size
+```javascript
+// For Puppeteer MCP
+await page.setViewport({ width: 1200, height: 800 });
+
+// For Playwright tests
+await page.setViewportSize({ width: 1200, height: 800 });
+```
+**Why**: Default window size is often too small for proper UI testing
+
 ### Issue: Puppeteer can't find elements
 **Solution**: Add wait conditions
 ```javascript
@@ -235,6 +249,17 @@ KillShell(shell_id="abc123")
 ```
 **Why**: Native tools provide proper cleanup and process tracking in Claude Code environment
 
+### Issue: Local Server for Testing
+**Solution**: Always use the npm serve script
+```bash
+# ✅ CORRECT - Use the serve script
+pnpm serve   # Starts server on port 8080
+
+# ❌ WRONG - Don't use python http.server or other methods
+python3 -m http.server 8080
+```
+**Why**: Consistent server setup, better CORS handling, proper mime types
+
 ## Next Experiments to Try
 
 - [ ] Test with `@modelcontextprotocol/server-everart` for UI mockups
@@ -278,6 +303,7 @@ The goal is to continuously optimize our development velocity. Every minute save
 
 ### Development Guidelines
 - use pnpm for package management
+- **ALWAYS use `pnpm serve` to start the local server** (port 8080) - DO NOT use python http.server
 - keep the repo clean. while testing and experimenting, output into the git-ignored tmp folder. use subfolders per task. only after a task is done, copy out created files if they are very important.
 - organize test screenshots in tmp/[test-name-date]/ folders
 
