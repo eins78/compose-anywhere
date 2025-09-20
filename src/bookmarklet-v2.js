@@ -52,6 +52,539 @@
   `;
 
   /**
+   * Custom element for floating menu
+   * Persistent configuration panel for embed settings
+   */
+  class FloatingMenu extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.isExpanded = false;
+      this.targetElement = null;
+      this.selectedSelector = null;
+      this.selectedPosition = 'after'; // Default position
+      this.availableContainers = [];
+      this.currentContainerIndex = 0;
+    }
+
+    connectedCallback() {
+      this.render();
+      this.setupEventListeners();
+    }
+
+    render() {
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${getBaseStyles()}
+
+          :host {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10003;
+            font-family: var(--font-family);
+          }
+
+          .menu-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+            transition: all var(--animation-normal) var(--animation-smooth);
+            overflow: hidden;
+          }
+
+          .menu-container.collapsed {
+            width: 56px;
+            height: 56px;
+          }
+
+          .menu-container.expanded {
+            width: 320px;
+            max-height: 480px;
+          }
+
+          .toggle-button {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-primary);
+            border: none;
+            cursor: pointer;
+            transition: background var(--animation-fast);
+          }
+
+          .toggle-button:hover {
+            background: var(--color-primary-hover);
+          }
+
+          .toggle-button svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+          }
+
+          .menu-content {
+            padding: 1rem;
+            display: none;
+          }
+
+          .expanded .menu-content {
+            display: block;
+          }
+
+          .menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
+          .menu-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+          }
+
+          .shrink-button {
+            background: #f3f4f6;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 12px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: background var(--animation-fast);
+          }
+
+          .shrink-button:hover {
+            background: #e5e7eb;
+          }
+
+          .section {
+            margin-bottom: 1.25rem;
+          }
+
+          .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+          }
+
+          .container-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+          }
+
+          .nav-button {
+            background: #f3f4f6;
+            border: none;
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+          }
+
+          .nav-button:hover:not(:disabled) {
+            background: #e5e7eb;
+          }
+
+          .nav-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+          }
+
+          .nav-button svg {
+            width: 16px;
+            height: 16px;
+            fill: #374151;
+          }
+
+          .container-info {
+            flex: 1;
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #374151;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .position-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+          }
+
+          .position-button {
+            background: #f3f4f6;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-size: 12px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+          }
+
+          .position-button:hover {
+            background: #e5e7eb;
+          }
+
+          .position-button.active {
+            background: var(--color-success);
+            color: white;
+            border-color: var(--color-success);
+          }
+
+          .position-button svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+          }
+
+          .export-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .export-button {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.625rem;
+            font-size: 12px;
+            color: #374151;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+          }
+
+          .export-button:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+          }
+
+          .export-button svg {
+            width: 14px;
+            height: 14px;
+            fill: #6b7280;
+          }
+
+          .status-message {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            margin-bottom: 8px;
+            background: #10b981;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: all var(--animation-fast);
+            pointer-events: none;
+          }
+
+          .status-message.show {
+            opacity: 1;
+            transform: translateY(0);
+          }
+
+          .selector-info {
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 0.75rem;
+            font-family: monospace;
+            word-break: break-all;
+            max-height: 60px;
+            overflow-y: auto;
+          }
+
+          .no-target {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 13px;
+            padding: 2rem 1rem;
+          }
+        </style>
+        <div class="menu-container ${this.isExpanded ? 'expanded' : 'collapsed'}">
+          <button class="toggle-button" aria-label="${this.isExpanded ? 'Collapse' : 'Expand'} menu">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+            </svg>
+          </button>
+          <div class="menu-content">
+            <div class="menu-header">
+              <span class="menu-title">Embed Configuration</span>
+              <button class="shrink-button">Minimize</button>
+            </div>
+            ${this.renderContent()}
+          </div>
+          <div class="status-message" id="statusMessage"></div>
+        </div>
+      `;
+    }
+
+    renderContent() {
+      if (!this.targetElement) {
+        return '<div class="no-target">Select an element to begin</div>';
+      }
+
+      return `
+        <div class="section">
+          <div class="section-label">Target Container</div>
+          <div class="container-controls">
+            <button class="nav-button" id="prevContainer" ${this.currentContainerIndex === 0 ? 'disabled' : ''}>
+              <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            </button>
+            <div class="container-info" title="${this.getContainerDescription()}">
+              ${this.getContainerDescription()}
+            </div>
+            <button class="nav-button" id="nextContainer" ${this.currentContainerIndex >= this.availableContainers.length - 1 ? 'disabled' : ''}>
+              <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </button>
+          </div>
+          ${this.selectedSelector ? `
+            <div class="selector-info">${this.selectedSelector.selector}</div>
+          ` : ''}
+        </div>
+
+        <div class="section">
+          <div class="section-label">Widget Position</div>
+          <div class="position-buttons">
+            <button class="position-button ${this.selectedPosition === 'before' ? 'active' : ''}" data-position="before">
+              <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+              <span>Before</span>
+            </button>
+            <button class="position-button ${this.selectedPosition === 'inside' ? 'active' : ''}" data-position="inside">
+              <svg viewBox="0 0 24 24"><path d="M12 2l-5.5 9h11z"/></svg>
+              <span>Inside</span>
+            </button>
+            <button class="position-button ${this.selectedPosition === 'after' ? 'active' : ''}" data-position="after">
+              <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+              <span>After</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-label">Export Options</div>
+          <div class="export-buttons">
+            <button class="export-button" data-export="js">
+              <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+              Copy as JavaScript
+            </button>
+            <button class="export-button" data-export="script">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              Copy as &lt;script&gt; tag
+            </button>
+            <button class="export-button" data-export="bookmarklet">
+              <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+              Copy as Bookmarklet
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    getContainerDescription() {
+      if (!this.targetElement) return 'No target selected';
+
+      const tag = this.targetElement.tagName.toLowerCase();
+      const classes = this.targetElement.className ?
+        `.${this.targetElement.className.split(' ').filter(c => c && !c.startsWith('compose-')).join('.')}` : '';
+      const id = this.targetElement.id ? `#${this.targetElement.id}` : '';
+
+      return `${tag}${id}${classes}`.substring(0, 30);
+    }
+
+    setupEventListeners() {
+      // Toggle button
+      this.shadowRoot.querySelector('.toggle-button').addEventListener('click', () => {
+        this.toggle();
+      });
+
+      // Shrink button
+      this.shadowRoot.addEventListener('click', (e) => {
+        if (e.target.classList.contains('shrink-button')) {
+          this.collapse();
+        }
+      });
+
+      // Container navigation
+      this.shadowRoot.addEventListener('click', (e) => {
+        if (e.target.closest('#prevContainer')) {
+          this.cycleContainer(-1);
+        } else if (e.target.closest('#nextContainer')) {
+          this.cycleContainer(1);
+        }
+      });
+
+      // Position buttons
+      this.shadowRoot.addEventListener('click', (e) => {
+        const button = e.target.closest('.position-button');
+        if (button) {
+          const position = button.dataset.position;
+          this.updatePosition(position);
+        }
+      });
+
+      // Export buttons
+      this.shadowRoot.addEventListener('click', (e) => {
+        const button = e.target.closest('.export-button');
+        if (button) {
+          const type = button.dataset.export;
+          this.handleExport(type);
+        }
+      });
+    }
+
+    toggle() {
+      this.isExpanded = !this.isExpanded;
+      this.render();
+      this.setupEventListeners();
+    }
+
+    expand() {
+      if (!this.isExpanded) {
+        this.isExpanded = true;
+        this.render();
+        this.setupEventListeners();
+      }
+    }
+
+    collapse() {
+      if (this.isExpanded) {
+        this.isExpanded = false;
+        this.render();
+        this.setupEventListeners();
+      }
+    }
+
+    setTarget(element, selector, containers) {
+      this.targetElement = element;
+      this.selectedSelector = selector;
+      this.availableContainers = containers || [element];
+      this.currentContainerIndex = 0;
+      this.expand();
+      this.render();
+      this.setupEventListeners();
+    }
+
+    cycleContainer(direction) {
+      const newIndex = this.currentContainerIndex + direction;
+      if (newIndex >= 0 && newIndex < this.availableContainers.length) {
+        this.currentContainerIndex = newIndex;
+        this.targetElement = this.availableContainers[newIndex];
+
+        // Dispatch event for container change
+        this.dispatchEvent(new CustomEvent('container-changed', {
+          detail: { element: this.targetElement, index: newIndex }
+        }));
+
+        this.render();
+        this.setupEventListeners();
+      }
+    }
+
+    updatePosition(position) {
+      this.selectedPosition = position;
+
+      // Dispatch event for position change
+      this.dispatchEvent(new CustomEvent('position-changed', {
+        detail: { position, element: this.targetElement }
+      }));
+
+      this.render();
+      this.setupEventListeners();
+    }
+
+    handleExport(type) {
+      if (!this.targetElement || !this.selectedSelector) {
+        this.showStatus('Please select a target first', false);
+        return;
+      }
+
+      const embedCode = this.generateEmbedCode(type);
+
+      if (type === 'bookmarklet') {
+        // Create bookmarklet link
+        const bookmarkletCode = `javascript:(function(){${encodeURIComponent(embedCode.replace(/\s+/g, ' '))}})();`;
+        navigator.clipboard.writeText(bookmarkletCode).then(() => {
+          this.showStatus('Bookmarklet copied!', true);
+        });
+      } else {
+        navigator.clipboard.writeText(embedCode).then(() => {
+          this.showStatus('Code copied to clipboard!', true);
+        });
+      }
+    }
+
+    generateEmbedCode(type) {
+      const positionMethod = {
+        'before': 'beforebegin',
+        'after': 'afterend',
+        'inside': 'beforeend'
+      }[this.selectedPosition] || 'afterend';
+
+      const jsCode = `const target = document.querySelector('${this.selectedSelector.selector}');
+if (target) {
+  const widget = document.createElement('white-paper-widget');
+  target.insertAdjacentElement('${positionMethod}', widget);
+}`;
+
+      if (type === 'script') {
+        return `<script>\n${jsCode}\n</script>`;
+      }
+
+      return jsCode;
+    }
+
+    showStatus(message, success) {
+      const statusEl = this.shadowRoot.querySelector('#statusMessage');
+      if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.style.background = success ? '#10b981' : '#ef4444';
+        statusEl.classList.add('show');
+
+        setTimeout(() => {
+          statusEl.classList.remove('show');
+        }, 2000);
+      }
+    }
+  }
+
+  /**
    * Custom element for target selection overlay
    * Handles both keyboard and mouse navigation
    */
@@ -1949,6 +2482,9 @@
   }
 
   // Register custom elements
+  if (!customElements.get('floating-menu')) {
+    customElements.define('floating-menu', FloatingMenu);
+  }
   if (!customElements.get('target-selector')) {
     customElements.define('target-selector', TargetSelector);
   }
@@ -1967,17 +2503,18 @@
    */
   class TwoStepPlacementController {
     constructor() {
-      this.state = 'inactive'; // inactive, selecting-target, choosing-selector, selecting-position, complete
+      this.state = 'inactive'; // inactive, selecting-target, choosing-selector, complete
       this.targetElement = null;
       this.selectedSelector = null;
-      this.selectedPosition = null;
+      this.selectedPosition = 'after'; // Default position
+      this.availableContainers = [];
 
       this.focusManager = new FocusManager();
       this.selectorGenerator = new SelectorGenerator();
 
       // UI elements
       this.targetSelector = null;
-      this.positionMenu = null;
+      this.floatingMenu = null;
       this.selectorChooser = null;
 
       // Hover state management
@@ -2011,6 +2548,29 @@
       this.targetSelector = document.createElement('target-selector');
       document.body.appendChild(this.targetSelector);
       this.targetSelector.activate();
+
+      // Create and add floating menu
+      this.floatingMenu = document.createElement('floating-menu');
+      document.body.appendChild(this.floatingMenu);
+
+      // Listen to floating menu events
+      this.floatingMenu.addEventListener('position-changed', (e) => {
+        this.selectedPosition = e.detail.position;
+        this.updateWidgetPosition();
+      });
+
+      this.floatingMenu.addEventListener('container-changed', (e) => {
+        this.targetElement = e.detail.element;
+        this.targetSelector.showOverlay(this.targetElement, false);
+
+        // Regenerate selectors for new container
+        const selectors = this.selectorGenerator.generateSelectors(this.targetElement);
+        if (selectors.length > 0) {
+          this.selectedSelector = selectors[0];
+          this.floatingMenu.setTarget(this.targetElement, this.selectedSelector, this.availableContainers);
+          this.placeWidget();
+        }
+      });
 
       // Setup target selection mode
       this.setupTargetSelection();
@@ -2264,6 +2824,9 @@
       this.targetElement = element;
       this.state = 'choosing-selector';
 
+      // Find available containers (parent elements that could hold the widget)
+      this.availableContainers = this.findAvailableContainers(element);
+
       // Hide target selector
       this.targetSelector.deactivate();
 
@@ -2278,7 +2841,7 @@
       // Handle selector choice
       this.selectorChooser.addEventListener('selector-chosen', (e) => {
         this.selectedSelector = e.detail;
-        this.showPositionMenu();
+        this.completeSelection();
       });
 
       // Handle cancel
@@ -2288,31 +2851,85 @@
     }
 
     /**
-     * Show position selection menu
+     * Find available containers for widget placement
      */
-    showPositionMenu() {
-      this.state = 'selecting-position';
+    findAvailableContainers(element) {
+      const containers = [element];
+      let current = element.parentElement;
 
-      // Create position menu
-      this.positionMenu = document.createElement('placement-position-menu');
-      document.body.appendChild(this.positionMenu);
-      this.positionMenu.showForTarget(this.targetElement);
+      while (current && current !== document.body) {
+        // Only include semantic or meaningful containers
+        const tag = current.tagName.toLowerCase();
+        const hasId = current.id;
+        const hasMeaningfulClass = current.className &&
+          !current.className.split(' ').every(c => c.startsWith('compose-'));
 
-      // Handle position selection - live preview
-      this.positionMenu.addEventListener('position-selected', (e) => {
-        this.selectedPosition = e.detail.position;
-        this.updateWidgetPosition();
-      });
-
-      // Handle cancel/escape - complete the placement
-      this.positionMenu.addEventListener('cancel', () => {
-        if (this.selectedPosition) {
-          this.completePlacement();
-        } else {
-          this.cleanup();
+        if (['article', 'section', 'aside', 'main', 'nav', 'header', 'footer', 'div'].includes(tag) &&
+            (hasId || hasMeaningfulClass || ['article', 'section', 'aside', 'main'].includes(tag))) {
+          containers.push(current);
         }
-      });
+
+        current = current.parentElement;
+      }
+
+      return containers;
     }
+
+    /**
+     * Complete the selection process
+     */
+    completeSelection() {
+      this.state = 'complete';
+
+      // Update floating menu with selection
+      this.floatingMenu.setTarget(this.targetElement, this.selectedSelector, this.availableContainers);
+
+      // Place the widget with default position
+      this.placeWidget();
+
+      // Remove target selector overlay but keep menu
+      if (this.targetSelector) {
+        this.targetSelector.deactivate();
+      }
+
+      // Remove selector chooser
+      if (this.selectorChooser) {
+        this.selectorChooser.remove();
+        this.selectorChooser = null;
+      }
+
+      // Scroll to widget
+      this.scrollToWidget();
+
+      console.log('Selection complete!');
+      console.log('Target:', this.targetElement);
+      console.log('Selector:', this.selectedSelector);
+      console.log('Position:', this.selectedPosition);
+    }
+
+    /**
+     * Scroll widget into view smoothly
+     */
+    scrollToWidget() {
+      const widget = document.querySelector('white-paper-widget');
+      if (widget) {
+        const rect = widget.getBoundingClientRect();
+        const viewHeight = window.innerHeight;
+        const scrollY = window.scrollY;
+
+        // Check if widget is not fully visible
+        if (rect.top < 0 || rect.bottom > viewHeight) {
+          // Calculate center position
+          const targetY = scrollY + rect.top + (rect.height / 2) - (viewHeight / 2);
+
+          window.scrollTo({
+            top: targetY,
+            behavior: 'smooth'
+          });
+        }
+      }
+    }
+
 
     /**
      * Update widget position for live preview
@@ -2325,42 +2942,12 @@
       // Place widget in new position
       this.placeWidget();
 
+      // Smooth scroll to widget
+      this.scrollToWidget();
+
       console.log('Widget position updated:', this.selectedPosition);
     }
 
-    /**
-     * Complete the placement and show embed code
-     */
-    completePlacement() {
-      this.state = 'complete';
-
-      console.log('Placement complete!');
-      console.log('Target:', this.targetElement);
-      console.log('Selector:', this.selectedSelector);
-      console.log('Position:', this.selectedPosition);
-
-      // Generate embed code
-      const embedCode = this.generateEmbedCode();
-
-      // Show embed code modal
-      const modal = document.createElement('embed-code-modal');
-      modal.code = embedCode;
-      modal.targetElement = this.targetElement;
-      document.body.appendChild(modal);
-
-      // Handle place another
-      modal.addEventListener('place-another', () => {
-        // Remove placed widget
-        document.querySelectorAll('white-paper-widget').forEach(w => w.remove());
-        // Restart flow
-        this.init();
-      });
-
-      // Handle close
-      modal.addEventListener('close', () => {
-        this.cleanup();
-      });
-    }
 
     /**
      * Place the actual widget on the page for preview
@@ -2668,9 +3255,9 @@ if (target) {
         this.targetSelector = null;
       }
 
-      if (this.positionMenu) {
-        this.positionMenu.remove();
-        this.positionMenu = null;
+      if (this.floatingMenu) {
+        this.floatingMenu.remove();
+        this.floatingMenu = null;
       }
 
       if (this.selectorChooser) {
