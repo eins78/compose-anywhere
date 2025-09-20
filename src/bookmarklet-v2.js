@@ -2363,9 +2363,9 @@
               <style>
                 :host {
                   display: block;
-                  max-width: 400px;
                   width: 100%;
                   font-family: system-ui, -apple-system, sans-serif;
+                  margin: 20px 0;
                 }
 
                 .widget {
@@ -2374,6 +2374,7 @@
                   box-shadow: 0 4px 20px rgba(0,0,0,0.1);
                   overflow: hidden;
                   border: 1px solid #e5e7eb;
+                  max-width: 100%;
                 }
 
                 .header {
@@ -2400,7 +2401,17 @@
                 }
 
                 .content {
-                  padding: 20px;
+                  padding: 30px;
+                }
+
+                @media (max-width: 480px) {
+                  .content {
+                    padding: 20px;
+                  }
+
+                  .header {
+                    padding: 16px;
+                  }
                 }
 
                 .description {
