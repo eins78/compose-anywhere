@@ -1,0 +1,62 @@
+{
+  "name": "compose-anywhere",
+  "version": "1.0.0",
+  "description": "Visual component placement tool - drop any component on any website",
+  "main": "src/bookmarklet.js",
+  "scripts": {
+    "test": "./test-workflow.sh",
+    "test:quick": "claude 'Test bookmarklet on local test page'",
+    "test:live": "claude 'Test bookmarklet on https://news.ycombinator.com'",
+    "test:multi": "claude --dangerously-skip-permissions 'Test on 5 different websites'",
+    "dev": "claude 'Start interactive development mode with hot reload'",
+    "docs": "claude 'Generate documentation from TSDoc comments'",
+    "bookmarklet": "node scripts/create-bookmarklet.js",
+    "serve": "npx serve . -p 8080",
+    "format": "prettier --write '**/*.{js,json,md}'",
+    "clean": "rm -rf screenshots/ docs/generated/"
+  },
+  "keywords": [
+    "component",
+    "placement",
+    "embed",
+    "bookmarklet",
+    "visual",
+    "web-components",
+    "shadow-dom",
+    "integration",
+    "compose",
+    "anywhere",
+    "drop",
+    "widget"
+  ],
+  "author": "Max Albrecht (eins78)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eins78/compose-anywhere.git"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.4",
+    "serve": "^14.2.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "browserslist": [
+    "Chrome >= 88",
+    "Firefox >= 63",
+    "Safari >= 15.4",
+    "Edge >= 88"
+  ],
+  "claude": {
+    "mcp": {
+      "primary": "puppeteer",
+      "required": ["puppeteer", "filesystem"],
+      "optional": ["git", "playwright"]
+    },
+    "workflows": {
+      "preferred": "test-workflow.sh",
+      "updateDocs": true
+    }
+  }
+}

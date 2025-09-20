@@ -1,0 +1,50 @@
+{
+  "mcpServers": {
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "env": {
+        "NODE_ENV": "development"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+      "config": {
+        "paths": [
+          "./src",
+          "./examples",
+          "./docs"
+        ]
+      }
+    },
+    "git": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-git"]
+    }
+  },
+  "customCommands": {
+    "test-bookmarklet": {
+      "description": "Test the bookmarklet on a sample page",
+      "script": "claude 'Use puppeteer to navigate to examples/test.html and execute the bookmarklet'"
+    },
+    "test-live": {
+      "description": "Test bookmarklet on a live website",
+      "script": "claude 'Use puppeteer to test the bookmarklet on https://news.ycombinator.com'"
+    },
+    "generate-docs": {
+      "description": "Generate documentation from TSDoc comments",
+      "script": "claude 'Read all JS files and generate API documentation from TSDoc comments'"
+    }
+  },
+  "aiConfig": {
+    "model": "claude-3-opus-20240229",
+    "temperature": 0.7,
+    "max_tokens": 4000
+  },
+  "project": {
+    "name": "compose-anywhere",
+    "version": "1.0.0",
+    "description": "Visual component placement tool"
+  }
+}

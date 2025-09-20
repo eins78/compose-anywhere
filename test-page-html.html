@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose Anywhere - Test Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+        }
+        
+        .hero {
+            text-align: center;
+            padding: 60px 0;
+            background: #f7f9fc;
+        }
+        
+        .hero h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        
+        .hero .cta {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #4a90e2;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 40px;
+            padding: 40px 0;
+        }
+        
+        .main {
+            background: white;
+        }
+        
+        .sidebar {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            height: fit-content;
+        }
+        
+        article {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        
+        article h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        footer {
+            background: #2c3e50;
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+        }
+        
+        #test-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+        
+        #test-controls button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #test-controls button:hover {
+            background: #357abd;
+        }
+        
+        #test-controls button:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Test Website</h1>
+            <p>A sample page for testing widget placement</p>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Welcome to Our Platform</h1>
+            <p>This is a hero section with a call-to-action button</p>
+            <a href="#" class="cta">Get Started</a>
+        </div>
+    </section>
+
+    <div class="container">
+        <div class="content">
+            <main class="main">
+                <article>
+                    <h2>First Article</h2>
+                    <p>This is a typical article container. It has a clear structure and would be a good place for widget placement.</p>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                </article>
+
+                <article id="featured-article">
+                    <h2>Featured Content</h2>
+                    <p>This article has an ID attribute, making it easily targetable.</p>
+                    <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                </article>
+
+                <section class="card-container">
+                    <div class="card">
+                        <h3>Card 1</h3>
+                        <p>Cards are common UI patterns</p>
+                    </div>
+                    <div class="card">
+                        <h3>Card 2</h3>
+                        <p>Good for widget insertion</p>
+                    </div>
+                </section>
+            </main>
+
+            <aside class="sidebar">
+                <h3>Sidebar</h3>
+                <p>This sidebar is a common layout pattern.</p>
+                <div class="card">
+                    <h4>Widget Area</h4>
+                    <p>Sidebars often contain widgets</p>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Test Website. For development purposes only.</p>
+        </div>
+    </footer>
+
+    <div id="test-controls">
+        <h4>Test Controls</h4>
+        <button onclick="loadBookmarklet()">Load Compose Anywhere</button>
+        <button onclick="clearComponents()">Clear Components</button>
+        <button onclick="showInfo()">Show Page Info</button>
+    </div>
+
+    <script>
+        // Load the bookmarklet code
+        function loadBookmarklet() {
+            const script = document.createElement('script');
+            script.src = './src/bookmarklet.js';
+            document.head.appendChild(script);
+            console.log('Compose Anywhere loaded! Visual placement mode should be active.');
+        }
+
+        // Clear any inserted components
+        function clearComponents() {
+            // Remove preview elements
+            document.querySelectorAll('component-preview').forEach(el => el.remove());
+            document.querySelectorAll('placement-menu').forEach(el => el.remove());
+            document.querySelectorAll('embed-modal').forEach(el => el.remove());
+            
+            // Remove any test iframes
+            document.querySelectorAll('iframe[data-compose-component]').forEach(el => el.remove());
+            
+            console.log('Cleared all components');
+        }
+
+        // Show information about targetable elements
+        function showInfo() {
+            const targets = [
+                '.hero .cta',
+                'article',
+                '#featured-article',
+                '.sidebar',
+                '.card',
+                'footer'
+            ];
+            
+            console.group('Targetable Elements');
+            targets.forEach(selector => {
+                const el = document.querySelector(selector);
+                if (el) {
+                    console.log(`✓ ${selector}:`, el);
+                }
+            });
+            console.groupEnd();
+        }
+
+        // Add some dynamic content for testing
+        setTimeout(() => {
+            console.log('Test page ready. Click "Load Compose Anywhere" to start testing.');
+        }, 500);
+    </script>
+</body>
+</html>
