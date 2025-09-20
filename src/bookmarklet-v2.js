@@ -47,6 +47,7 @@
 
     * {
       box-sizing: border-box;
+      user-select: none; /* Disable text selection by default in our UI */
     }
   `;
 
@@ -642,6 +643,7 @@
             font-size: 14px;
             color: #111;
             word-break: break-all;
+            user-select: text; /* Allow selection of selector text for copying */
           }
 
           .selector-confidence {
@@ -1726,6 +1728,8 @@
             overflow-x: auto;
             white-space: pre-wrap;
             word-break: break-all;
+            user-select: text; /* Allow text selection for copying embed code */
+            cursor: text;
           }
 
           .footer {
@@ -2314,8 +2318,9 @@
      * Update widget position for live preview
      */
     updateWidgetPosition() {
-      // Remove existing widget if any
+      // Remove existing widget and blocker if any
       document.querySelectorAll('white-paper-widget').forEach(w => w.remove());
+      document.querySelectorAll('.compose-anywhere-blocker').forEach(b => b.remove());
 
       // Place widget in new position
       this.placeWidget();
@@ -2379,6 +2384,87 @@
 
       // Add a subtle animation for visual feedback
       widget.style.animation = 'fadeIn 0.3s ease-out';
+
+      // Create an invisible overlay to block interactions
+      this.createInteractionBlocker(widget);
+    }
+
+    /**
+     * Create an overlay element that blocks all interactions with the widget
+     * @param {HTMLElement} widget - The widget to block
+     */
+    createInteractionBlocker(widget) {
+      // Remove any existing blocker
+      const existingBlocker = document.querySelector('.compose-anywhere-blocker');
+      if (existingBlocker) {
+        existingBlocker.remove();
+      }
+
+      // Wait for widget to render
+      setTimeout(() => {
+        const rect = widget.getBoundingClientRect();
+
+        // Create blocker overlay
+        const blocker = document.createElement('div');
+        blocker.className = 'compose-anywhere-blocker';
+        blocker.style.cssText = `
+          position: fixed;
+          left: ${rect.left}px;
+          top: ${rect.top}px;
+          width: ${rect.width}px;
+          height: ${rect.height}px;
+          z-index: 10000;
+          cursor: not-allowed;
+          user-select: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            rgba(0, 0, 0, 0.01) 10px,
+            rgba(0, 0, 0, 0.01) 20px
+          );
+          border-radius: 12px;
+        `;
+
+        // Block all events
+        blocker.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        blocker.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        blocker.addEventListener('mouseup', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        blocker.addEventListener('keydown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        document.body.appendChild(blocker);
+
+        // Update position on scroll/resize
+        const updatePosition = () => {
+          const newRect = widget.getBoundingClientRect();
+          blocker.style.left = `${newRect.left}px`;
+          blocker.style.top = `${newRect.top}px`;
+          blocker.style.width = `${newRect.width}px`;
+          blocker.style.height = `${newRect.height}px`;
+        };
+
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+
+        // Store reference for cleanup
+        this.interactionBlocker = blocker;
+        this.blockUpdateHandler = updatePosition;
+      }, 100);
     }
 
     /**
@@ -2591,6 +2677,22 @@ if (target) {
         this.selectorChooser.remove();
         this.selectorChooser = null;
       }
+
+      // Remove interaction blocker
+      if (this.interactionBlocker) {
+        this.interactionBlocker.remove();
+        this.interactionBlocker = null;
+      }
+
+      // Remove blocker event listeners
+      if (this.blockUpdateHandler) {
+        window.removeEventListener('scroll', this.blockUpdateHandler, true);
+        window.removeEventListener('resize', this.blockUpdateHandler);
+        this.blockUpdateHandler = null;
+      }
+
+      // Clean up any stray blockers
+      document.querySelectorAll('.compose-anywhere-blocker').forEach(b => b.remove());
 
       // Restore focus
       this.focusManager.restoreFocus();
