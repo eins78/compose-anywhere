@@ -515,6 +515,60 @@
   }
 
   /**
+   * Custom element wrapper for placement with pure CSS hover
+   * Contains the preview and menu as siblings for easy hover interaction
+   */
+  class PlacementWrapper extends HTMLElement {
+    constructor() {
+      super();
+      this.render();
+    }
+
+    render() {
+      // Add global styles for hover interaction (only once)
+      if (!document.querySelector('#placement-wrapper-styles')) {
+        const style = document.createElement('style');
+        style.id = 'placement-wrapper-styles';
+        style.textContent = `
+          placement-wrapper {
+            display: block;
+            position: relative; /* Create positioning context for menu */
+          }
+
+          placement-menu {
+            --menu-opacity: 0;
+            --menu-transform: translateY(-10px);
+            --menu-pointer-events: none;
+          }
+
+          placement-wrapper:hover placement-menu {
+            --menu-opacity: 1;
+            --menu-transform: translateY(0px);
+            --menu-pointer-events: auto;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+
+    /**
+     * Set fixed state for the wrapper
+     * @param {boolean} fixed - Whether the placement is fixed
+     */
+    setFixed(fixed) {
+      this.setAttribute('data-fixed', fixed.toString());
+    }
+
+    /**
+     * Set placement position indicator
+     * @param {string} position - The placement position
+     */
+    setPosition(position) {
+      this.setAttribute('data-position', position);
+    }
+  }
+
+  /**
    * Custom element for the component preview
    * Uses Shadow DOM for style encapsulation
    */
@@ -546,11 +600,12 @@
           }
 
           :host([data-fixed="true"]) {
-            --overlay-opacity: 0.1; /* 90% transparent in fixed mode */
+            --overlay-opacity: 0; /* Fully transparent when placed */
+            margin: 0; /* Remove margins for realistic integration */
           }
 
-          :host(:hover) {
-            --overlay-opacity: 0.05; /* 95% transparent on hover */
+          :host([data-fixed="true"]:hover) {
+            --overlay-opacity: 0.15; /* Show overlay on hover for controls */
           }
 
           .preview-container {
@@ -577,7 +632,15 @@
           }
 
           :host([data-fixed="true"]) .component-wrapper {
-            outline-style: solid;
+            outline: none; /* Remove border completely when placed */
+            box-shadow: none; /* Remove shadow for realistic integration */
+            border-radius: 0; /* Remove border radius for seamless integration */
+          }
+
+          :host([data-fixed="true"]:hover) .component-wrapper {
+            outline: 2px solid var(--color-primary); /* Show border on hover */
+            outline-offset: -2px;
+            border-radius: var(--radius-lg);
             box-shadow: var(--shadow-lg);
           }
 
@@ -620,6 +683,11 @@
 
           :host([data-fixed="true"]) .status-indicator {
             background: var(--color-success);
+            opacity: 0; /* Hide by default when placed */
+          }
+
+          :host([data-fixed="true"]:hover) .status-indicator {
+            opacity: 0.9; /* Show on hover */
           }
 
           .status-icon {
@@ -649,6 +717,10 @@
             opacity: 0.6;
           }
 
+          :host([data-fixed="true"]) .position-indicator {
+            display: none; /* Remove completely when placed */
+          }
+
           /* Responsive container width indicator */
           .width-indicator {
             position: absolute;
@@ -675,6 +747,8 @@
             height: auto;
             display: block;
           }
+
+          /* Menu will be controlled via JavaScript hover events */
         </style>
 
         <div class="preview-container">
@@ -840,8 +914,13 @@
             ${getBaseStyles()}
             position: absolute;
             top: var(--spacing-md);
-            right: var(--spacing-md);
+            left: var(--spacing-md);
             z-index: 10000;
+            /* Use CSS custom properties from parent for hover control */
+            opacity: var(--menu-opacity, 0);
+            transform: var(--menu-transform, translateY(-10px));
+            pointer-events: var(--menu-pointer-events, none);
+            transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
           }
           
           .menu {
@@ -1186,6 +1265,9 @@
   }
 
   // Register custom elements
+  if (!customElements.get('placement-wrapper')) {
+    customElements.define('placement-wrapper', PlacementWrapper);
+  }
   if (!customElements.get('component-preview')) {
     customElements.define('component-preview', ComponentPreview);
   }
@@ -1220,7 +1302,12 @@
        * @type {ComponentPreview|null}
        */
       this.previewElement = null;
-      
+
+      /**
+       * @type {PlacementWrapper|null}
+       */
+      this.wrapperElement = null;
+
       /**
        * @type {PlacementMenu|null}
        */
@@ -1510,7 +1597,14 @@
 
       // Sort by score and return best match
       candidates.sort((a, b) => b.score - a.score);
-      return candidates[0]?.element || element;
+
+      // Return the candidate object (with element, score, position)
+      if (candidates.length > 0) {
+        return candidates[0];
+      }
+
+      // Fallback: return basic object with the element
+      return element ? { element, score: 10, position: 'after' } : null;
     }
 
     /**
@@ -1725,20 +1819,24 @@
      * @param {number} y - Mouse Y coordinate
      */
     updateTargetFromMouse(x, y) {
-      // Temporarily disable pointer events on preview to avoid interference
-      if (this.previewElement) {
-        this.previewElement.style.pointerEvents = 'none';
+      // Temporarily disable pointer events on preview/wrapper to avoid interference
+      const elementToDisable = this.wrapperElement || this.previewElement;
+      if (elementToDisable) {
+        elementToDisable.style.pointerEvents = 'none';
       }
 
       const target = this.findPlacementTarget(x, y);
 
       // Re-enable pointer events
-      if (this.previewElement) {
-        this.previewElement.style.pointerEvents = '';
+      if (elementToDisable) {
+        elementToDisable.style.pointerEvents = '';
       }
 
       // Add stability buffer - only update if target is different for 2+ frames
-      if (target !== this.candidateTarget) {
+      const targetElement = target ? target.element : null;
+      const candidateElement = this.candidateTarget ? this.candidateTarget.element : null;
+
+      if (targetElement !== candidateElement) {
         this.candidateTarget = target;
         this.candidateCount = 1;
       } else if (this.candidateCount < 2) {
@@ -1746,8 +1844,19 @@
       }
 
       // Only update if target is stable for 2 frames OR significantly different
-      if (this.candidateCount >= 2 && target !== this.currentTarget) {
-        this.updatePreview(target);
+      if (this.candidateCount >= 2 && targetElement !== this.currentTarget) {
+        if (target && target.element) {
+          // Extract the element from the target object
+          this.currentTarget = target.element;
+          this.currentPosition = target.position || 'after';
+          this.updatePreview(target.element, this.currentPosition);
+        } else {
+          // No valid target - clear preview
+          this.currentTarget = null;
+          if (this.previewElement && this.previewElement.parentNode) {
+            this.previewElement.remove();
+          }
+        }
       }
     }
 
@@ -1770,13 +1879,33 @@
           position: this.currentPosition || 'after'
         };
 
-        // Update preview state
-        this.previewElement.setFixed(true);
+        // Create wrapper for clean CSS hover
+        this.wrapperElement = document.createElement('placement-wrapper');
+        this.wrapperElement.setFixed(true);
+        this.wrapperElement.setPosition(this.currentPosition || 'after');
 
-        // Add menu
+        // Save original parent and position BEFORE moving preview
+        const originalParent = this.previewElement.parentNode;
+        const originalNextSibling = this.previewElement.nextSibling;
+
+        // Move preview into wrapper
+        this.previewElement.setFixed(true);
+        this.wrapperElement.appendChild(this.previewElement);
+
+        // Add menu to wrapper (sibling of preview)
         this.menuElement = document.createElement('placement-menu');
         this.menuElement.placement = this.fixedPlacement;
-        this.previewElement.appendChild(this.menuElement);
+        this.wrapperElement.appendChild(this.menuElement);
+
+        // Insert wrapper at original location
+        if (originalNextSibling) {
+          originalParent.insertBefore(this.wrapperElement, originalNextSibling);
+        } else {
+          originalParent.appendChild(this.wrapperElement);
+        }
+
+        // DO NOT reassign previewElement - it should still point to the actual preview
+        // The wrapper is just a container
 
         // Menu event handlers
         this.menuElement.addEventListener('get-code', (e) => {
@@ -1849,13 +1978,20 @@
      * Reset to placement mode
      */
     resetPlacement() {
-      if (this.menuElement) {
-        this.menuElement.remove();
-        this.menuElement = null;
+      if (this.wrapperElement) {
+        // Extract preview from wrapper and restore to original position
+        const preview = this.wrapperElement.querySelector('component-preview');
+        if (preview) {
+          this.wrapperElement.parentNode.insertBefore(preview, this.wrapperElement);
+          preview.setFixed(false);
+          this.previewElement = preview;
+        }
+        this.wrapperElement.remove();
+        this.wrapperElement = null;
       }
 
-      if (this.previewElement) {
-        this.previewElement.setFixed(false);
+      if (this.menuElement) {
+        this.menuElement = null; // Already removed with wrapper
       }
 
       this.mode = 'placement';
@@ -1876,14 +2012,16 @@
         this.animationFrame = null;
       }
 
-      if (this.previewElement) {
+      if (this.wrapperElement) {
+        this.wrapperElement.remove();
+        this.wrapperElement = null;
+      } else if (this.previewElement) {
         this.previewElement.remove();
         this.previewElement = null;
       }
 
       if (this.menuElement) {
-        this.menuElement.remove();
-        this.menuElement = null;
+        this.menuElement = null; // Already removed with wrapper
       }
 
       // Remove any open modals
