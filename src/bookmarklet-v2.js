@@ -506,11 +506,11 @@
           .modal {
             background: white;
             border-radius: 12px;
-            padding: 24px;
-            max-width: 500px;
-            width: 90%;
+            width: min(600px, 80vw);
             max-height: 70vh;
-            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             animation: slideUp var(--animation-normal) var(--animation-smooth);
           }
@@ -526,11 +526,24 @@
             }
           }
 
+          .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
           h3 {
-            margin: 0 0 16px 0;
+            margin: 0;
             font-family: var(--font-family);
             font-size: 18px;
             color: #111;
+          }
+
+          .body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            /* Add bottom padding to prevent last item being hidden by footer */
+            padding-bottom: 24px;
           }
 
           .selector-list {
@@ -559,7 +572,7 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
           }
 
-          .selector-option.selected {
+          .selector-option[aria-checked="true"] {
             border-color: var(--color-success);
             background: rgba(16, 185, 129, 0.05);
           }
@@ -603,11 +616,17 @@
             color: #991b1b;
           }
 
-          .actions {
-            margin-top: 20px;
+          .footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e5e7eb;
             display: flex;
             gap: 12px;
             justify-content: flex-end;
+            background: white;
+            /* Shadow to show when content scrolls */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            position: relative;
+            z-index: 1;
           }
 
           button {
@@ -626,8 +645,16 @@
             color: white;
           }
 
-          .confirm-btn:hover {
-            background: var(--color-primary-hover);
+          .confirm-btn:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+          }
+
+          .confirm-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
           }
 
           .cancel-btn {
@@ -644,12 +671,16 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
           }
         </style>
-        <div class="modal">
-          <h3>Choose a selector for the target element</h3>
-          <div class="selector-list" id="selectorList"></div>
-          <div class="actions">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="selector-title">
+          <div class="header">
+            <h3 id="selector-title">Choose a selector for the target element</h3>
+          </div>
+          <div class="body">
+            <div class="selector-list" role="radiogroup" aria-label="Available selectors" id="selectorList"></div>
+          </div>
+          <div class="footer">
             <button class="cancel-btn" id="cancelBtn">Cancel</button>
-            <button class="confirm-btn" id="confirmBtn">Use Selected</button>
+            <button class="confirm-btn" id="confirmBtn" disabled>Use Selected</button>
           </div>
         </div>
       `;
@@ -714,7 +745,10 @@
       selectors.forEach((selector, index) => {
         const option = document.createElement('div');
         option.className = 'selector-option';
-        option.tabIndex = 0;
+        option.tabIndex = index === 0 ? 0 : -1;  // Only first item in tab order
+        option.setAttribute('role', 'radio');
+        option.setAttribute('aria-checked', 'false');
+        option.setAttribute('id', `selector-${index}`);
         option.innerHTML = `
           <div class="selector-type">${selector.type}</div>
           <div class="selector-value">${selector.selector}</div>
@@ -730,13 +764,17 @@
         option.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            this.selectOption(index);
-          } else if (e.key === 'ArrowUp' && index > 0) {
+            this.confirmSelection();
+          } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
             e.preventDefault();
-            list.children[index - 1].focus();
-          } else if (e.key === 'ArrowDown' && index < selectors.length - 1) {
+            const prevIndex = index > 0 ? index - 1 : selectors.length - 1;
+            this.selectOption(prevIndex);
+            list.children[prevIndex].focus();
+          } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
             e.preventDefault();
-            list.children[index + 1].focus();
+            const nextIndex = (index + 1) % selectors.length;
+            this.selectOption(nextIndex);
+            list.children[nextIndex].focus();
           }
         });
 
@@ -759,11 +797,19 @@
       const options = this.shadowRoot.querySelectorAll('.selector-option');
       options.forEach((opt, i) => {
         if (i === index) {
-          opt.classList.add('selected');
+          opt.setAttribute('aria-checked', 'true');
+          opt.setAttribute('tabindex', '0');
         } else {
-          opt.classList.remove('selected');
+          opt.setAttribute('aria-checked', 'false');
+          opt.setAttribute('tabindex', '-1');
         }
       });
+
+      // Enable confirm button now that we have a selection
+      const confirmBtn = this.shadowRoot.getElementById('confirmBtn');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+      }
     }
 
     /**
@@ -776,6 +822,13 @@
         }));
       }
       this.remove();
+    }
+
+    /**
+     * Confirm selection (alias for keyboard interaction)
+     */
+    confirmSelection() {
+      this.confirm();
     }
 
     /**
@@ -1458,6 +1511,387 @@
     }
   }
 
+  /**
+   * Custom element for embed code modal with ARIA dialog pattern
+   */
+  class EmbedCodeModal extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._code = '';
+      this._targetElement = null;
+      this.trapFocus = this.trapFocus.bind(this);
+      this.previousFocus = null;
+    }
+
+    connectedCallback() {
+      this.render();
+      this.setupKeyboardHandling();
+      this.setupFocusTrap();
+    }
+
+    disconnectedCallback() {
+      // Restore focus when modal closes
+      if (this.previousFocus && this.previousFocus.focus) {
+        this.previousFocus.focus();
+      }
+    }
+
+    set code(value) {
+      this._code = value;
+      const codeEl = this.shadowRoot?.getElementById('codeContent');
+      if (codeEl) {
+        codeEl.textContent = value;
+      }
+    }
+
+    set targetElement(el) {
+      this._targetElement = el;
+    }
+
+    render() {
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${getBaseStyles()}
+
+          :host {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10003;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            animation: fadeIn var(--animation-fast);
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          .modal {
+            background: white;
+            border-radius: 12px;
+            width: min(800px, 80vw);
+            height: min(600px, 70vh);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp var(--animation-normal) var(--animation-smooth);
+          }
+
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+
+          h2 {
+            margin: 0;
+            font-family: var(--font-family);
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+          }
+
+          .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all var(--animation-fast);
+          }
+
+          .close-btn:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+          }
+
+          .close-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+          }
+
+          .body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            /* Extra padding at bottom for scrolling */
+            padding-bottom: 40px;
+          }
+
+          .success-message {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+
+          .success-icon {
+            font-size: 24px;
+          }
+
+          .code-container {
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+          }
+
+          pre {
+            margin: 0;
+            color: #e5e7eb;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+          }
+
+          .footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            /* Shadow indicates scrollable content above */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            position: relative;
+            z-index: 1;
+          }
+
+          .footer-hint {
+            font-size: 13px;
+            color: #6b7280;
+            font-family: var(--font-family);
+          }
+
+          .footer-buttons {
+            display: flex;
+            gap: 12px;
+          }
+
+          button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-family: var(--font-family);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--animation-fast) var(--animation-smooth);
+          }
+
+          button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+          }
+
+          .btn-primary {
+            background: var(--color-primary);
+            color: white;
+          }
+
+          .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+          }
+
+          .btn-secondary {
+            background: #e5e7eb;
+            color: #4b5563;
+          }
+
+          .btn-secondary:hover {
+            background: #d1d5db;
+          }
+
+          .btn-success {
+            background: var(--color-success);
+            color: white;
+          }
+
+          .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+          }
+
+          .copied-feedback {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--color-success);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--animation-fast);
+          }
+
+          .copied-feedback.show {
+            opacity: 1;
+          }
+        </style>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <div class="header">
+            <h2 id="modal-title">Component Placed Successfully!</h2>
+            <button class="close-btn" aria-label="Close dialog" id="closeBtn">×</button>
+          </div>
+          <div class="body">
+            <div class="success-message">
+              <span class="success-icon">✅</span>
+              <div>
+                <strong>Your component has been placed on the page!</strong><br>
+                Copy the embed code below to use it permanently on your site.
+              </div>
+            </div>
+            <div class="code-container">
+              <pre id="codeContent">${this._code}</pre>
+              <div class="copied-feedback" id="copiedFeedback">Copied!</div>
+            </div>
+          </div>
+          <div class="footer">
+            <div class="footer-hint">Press ESC to close</div>
+            <div class="footer-buttons">
+              <button class="btn-success" id="copyBtn">Copy Code</button>
+              <button class="btn-primary" id="placeAnotherBtn">Place Another</button>
+              <button class="btn-secondary" id="doneBtn">Done</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+      const copyBtn = this.shadowRoot.getElementById('copyBtn');
+      const placeAnotherBtn = this.shadowRoot.getElementById('placeAnotherBtn');
+      const doneBtn = this.shadowRoot.getElementById('doneBtn');
+      const closeBtn = this.shadowRoot.getElementById('closeBtn');
+
+      copyBtn?.addEventListener('click', () => this.copyCode());
+      placeAnotherBtn?.addEventListener('click', () => this.placeAnother());
+      doneBtn?.addEventListener('click', () => this.close());
+      closeBtn?.addEventListener('click', () => this.close());
+    }
+
+    setupKeyboardHandling() {
+      this.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          this.close();
+        }
+      });
+    }
+
+    setupFocusTrap() {
+      // Save current focus before modal opens
+      this.previousFocus = document.activeElement;
+
+      // Get all focusable elements
+      const focusableElements = this.shadowRoot.querySelectorAll(
+        'button, [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (focusableElements.length > 0) {
+        // Focus first button (Copy Code)
+        setTimeout(() => {
+          const copyBtn = this.shadowRoot.getElementById('copyBtn');
+          copyBtn?.focus();
+        }, 100);
+
+        // Trap focus within modal
+        const firstFocusable = focusableElements[0];
+        const lastFocusable = focusableElements[focusableElements.length - 1];
+
+        this.shadowRoot.addEventListener('keydown', (e) => {
+          if (e.key === 'Tab') {
+            if (e.shiftKey && this.shadowRoot.activeElement === firstFocusable) {
+              e.preventDefault();
+              lastFocusable.focus();
+            } else if (!e.shiftKey && this.shadowRoot.activeElement === lastFocusable) {
+              e.preventDefault();
+              firstFocusable.focus();
+            }
+          }
+        });
+      }
+    }
+
+    async copyCode() {
+      try {
+        await navigator.clipboard.writeText(this._code);
+
+        // Show feedback
+        const feedback = this.shadowRoot.getElementById('copiedFeedback');
+        if (feedback) {
+          feedback.classList.add('show');
+          setTimeout(() => {
+            feedback.classList.remove('show');
+          }, 2000);
+        }
+
+        // Update button temporarily
+        const copyBtn = this.shadowRoot.getElementById('copyBtn');
+        if (copyBtn) {
+          const originalText = copyBtn.textContent;
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.textContent = originalText;
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Failed to copy code:', err);
+      }
+    }
+
+    placeAnother() {
+      this.dispatchEvent(new Event('place-another'));
+      this.close();
+    }
+
+    close() {
+      this.dispatchEvent(new Event('close'));
+      this.remove();
+    }
+  }
+
   // Register custom elements
   if (!customElements.get('target-selector')) {
     customElements.define('target-selector', TargetSelector);
@@ -1467,6 +1901,9 @@
   }
   if (!customElements.get('selector-chooser')) {
     customElements.define('selector-chooser', SelectorChooser);
+  }
+  if (!customElements.get('embed-code-modal')) {
+    customElements.define('embed-code-modal', EmbedCodeModal);
   }
 
   /**
@@ -1828,13 +2265,52 @@
       console.log('Selector:', this.selectedSelector);
       console.log('Position:', this.selectedPosition);
 
+      // Actually place the widget on the page for visual preview
+      this.placeWidget();
+
       // Generate embed code
       const embedCode = this.generateEmbedCode();
 
-      // Show result (simplified for now)
-      alert(`Component placed!\n\nSelector: ${this.selectedSelector.selector}\nPosition: ${this.selectedPosition}\n\nEmbed code:\n${embedCode}`);
+      // Show embed code modal
+      const modal = document.createElement('embed-code-modal');
+      modal.code = embedCode;
+      modal.targetElement = this.targetElement;
+      document.body.appendChild(modal);
 
-      this.cleanup();
+      // Handle place another
+      modal.addEventListener('place-another', () => {
+        // Remove placed widget
+        document.querySelectorAll('white-paper-widget').forEach(w => w.remove());
+        // Restart flow
+        this.init();
+      });
+
+      // Handle close
+      modal.addEventListener('close', () => {
+        this.cleanup();
+      });
+    }
+
+    /**
+     * Place the actual widget on the page for preview
+     */
+    placeWidget() {
+      // Create the widget
+      const widget = document.createElement('white-paper-widget');
+      widget.innerHTML = CONFIG.component;
+
+      // Determine insertion method based on position
+      const insertMethod = {
+        'before': 'beforebegin',
+        'inside': 'beforeend',
+        'after': 'afterend'
+      }[this.selectedPosition] || 'afterend';
+
+      // Insert the widget
+      this.targetElement.insertAdjacentElement(insertMethod, widget);
+
+      // Add a subtle animation for visual feedback
+      widget.style.animation = 'fadeIn 0.3s ease-out';
     }
 
     /**
