@@ -62,6 +62,7 @@
       this.isExpanded = false;
       this.targetElement = null;
       this.selectedSelector = null;
+      this.availableSelectors = [];
       this.selectedPosition = 'after'; // Default position
     }
 
@@ -113,6 +114,10 @@
             border: none;
             cursor: pointer;
             transition: background var(--animation-fast);
+          }
+
+          .expanded .toggle-button {
+            display: none;
           }
 
           .toggle-button:hover {
@@ -342,9 +347,11 @@
             transform: translateY(0);
           }
 
-          .selector-info {
+          .selector-button {
+            width: 100%;
             padding: 0.5rem;
             background: #f9fafb;
+            border: 1px solid #e5e7eb;
             border-radius: 6px;
             font-size: 11px;
             color: #6b7280;
@@ -353,6 +360,20 @@
             word-break: break-all;
             max-height: 60px;
             overflow-y: auto;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            text-align: left;
+          }
+
+          .selector-button:hover {
+            background: #e5e7eb;
+            border-color: #d1d5db;
+          }
+
+          .selector-button:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
           }
 
           .no-target {
@@ -392,7 +413,12 @@
             ${this.getContainerDescription()}
           </div>
           ${this.selectedSelector ? `
-            <div class="selector-info">${this.selectedSelector.selector}</div>
+            <button class="selector-button"
+                    role="button"
+                    aria-label="Change selector: ${this.selectedSelector.selector}"
+                    title="Click to change selector">
+              ${this.selectedSelector.type}: ${this.selectedSelector.selector}
+            </button>
           ` : ''}
           <button class="new-target-button">
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
@@ -455,9 +481,12 @@
 
     setupEventListeners() {
       // Toggle button
-      this.shadowRoot.querySelector('.toggle-button').addEventListener('click', () => {
-        this.toggle();
-      });
+      const toggleButton = this.shadowRoot.querySelector('.toggle-button');
+      if (toggleButton) {
+        toggleButton.addEventListener('click', () => {
+          this.toggle();
+        });
+      }
 
       // Shrink button
       this.shadowRoot.addEventListener('click', (e) => {
@@ -490,6 +519,13 @@
           this.handleExport(type);
         }
       });
+
+      // Selector button - reopens selector chooser
+      this.shadowRoot.addEventListener('click', (e) => {
+        if (e.target.classList.contains('selector-button')) {
+          this.dispatchEvent(new CustomEvent('reopen-selector-chooser'));
+        }
+      });
     }
 
     toggle() {
@@ -514,9 +550,10 @@
       }
     }
 
-    setTarget(element, selector) {
+    setTarget(element, selector, selectors = []) {
       this.targetElement = element;
       this.selectedSelector = selector;
+      this.availableSelectors = selectors.length > 0 ? selectors : [selector];
       this.expand();
       this.render();
       this.setupEventListeners();
@@ -2520,6 +2557,7 @@ if (target) {
       this.state = 'inactive'; // inactive, selecting-target, choosing-selector, complete
       this.targetElement = null;
       this.selectedSelector = null;
+      this.availableSelectors = [];
       this.selectedPosition = 'after'; // Default position
 
       this.focusManager = new FocusManager();
@@ -2570,6 +2608,10 @@ if (target) {
       this.floatingMenu.addEventListener('position-changed', (e) => {
         this.selectedPosition = e.detail.position;
         this.updateWidgetPosition();
+      });
+
+      this.floatingMenu.addEventListener('reopen-selector-chooser', () => {
+        this.reopenSelectorChooser();
       });
 
       this.floatingMenu.addEventListener('request-new-target', () => {
@@ -2834,6 +2876,7 @@ if (target) {
 
       // Generate selectors
       const selectors = this.selectorGenerator.generateSelectors(element);
+      this.availableSelectors = selectors; // Store for later use
 
       // Show selector chooser
       this.selectorChooser = document.createElement('selector-chooser');
@@ -2878,13 +2921,43 @@ if (target) {
     }
 
     /**
+     * Reopen the selector chooser for the current target
+     */
+    reopenSelectorChooser() {
+      if (!this.targetElement || !this.availableSelectors) return;
+
+      // Show selector chooser with current selectors
+      this.selectorChooser = document.createElement('selector-chooser');
+      this.selectorChooser.setSelectors(this.availableSelectors);
+      document.body.appendChild(this.selectorChooser);
+
+      // Handle selector choice
+      this.selectorChooser.addEventListener('selector-chosen', (e) => {
+        this.selectedSelector = e.detail;
+        // Update floating menu with new selector
+        this.floatingMenu.setTarget(this.targetElement, this.selectedSelector, this.availableSelectors);
+        // Update widget position
+        this.updateWidgetPosition();
+        // Remove chooser
+        this.selectorChooser.remove();
+        this.selectorChooser = null;
+      });
+
+      // Handle cancel
+      this.selectorChooser.addEventListener('cancel', () => {
+        this.selectorChooser.remove();
+        this.selectorChooser = null;
+      });
+    }
+
+    /**
      * Complete the selection process
      */
     completeSelection() {
       this.state = 'complete';
 
-      // Update floating menu with selection
-      this.floatingMenu.setTarget(this.targetElement, this.selectedSelector);
+      // Update floating menu with selection and all available selectors
+      this.floatingMenu.setTarget(this.targetElement, this.selectedSelector, this.availableSelectors);
 
       // Place the widget with default position
       this.placeWidget();
