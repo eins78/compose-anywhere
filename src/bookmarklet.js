@@ -458,7 +458,17 @@
         }
 
         @container (min-width: 800px) {
-          .widget {
+          .content {
+            max-width: 800px;
+            margin: 0 auto;
+          }
+
+          .header {
+            max-width: 800px;
+            margin: 0 auto;
+          }
+
+          .footer {
             max-width: 800px;
             margin: 0 auto;
           }
@@ -617,6 +627,28 @@
             height: 12px;
           }
 
+          /* Placement position indicator */
+          .position-indicator {
+            position: absolute;
+            top: var(--spacing-sm);
+            left: var(--spacing-sm);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            font-family: monospace;
+            z-index: 20;
+            opacity: 0.8;
+            transition: opacity var(--transition-base);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          :host(:not(:hover)) .position-indicator {
+            opacity: 0.6;
+          }
+
           /* Responsive container width indicator */
           .width-indicator {
             position: absolute;
@@ -664,6 +696,11 @@
                     : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z'}" />
               </svg>
               ${this.getAttribute('data-fixed') === 'true' ? 'Placed' : 'Preview'}
+            </div>
+
+            <!-- Position indicator -->
+            <div class="position-indicator">
+              ${this.getPositionDisplay()}
             </div>
 
             <!-- Responsive width indicator -->
@@ -743,11 +780,33 @@
     }
 
     /**
+     * Get display text for current placement position
+     * @returns {string} Position display text
+     */
+    getPositionDisplay() {
+      const position = this.getAttribute('data-position') || 'after';
+      const positionMap = {
+        'before': '↑ BEFORE',
+        'after': '↓ AFTER',
+        'inside': '→ INSIDE'
+      };
+      return positionMap[position] || position.toUpperCase();
+    }
+
+    /**
      * Set fixed state for the preview
      * @param {boolean} fixed - Whether the placement is fixed
      */
     setFixed(fixed) {
       this.setAttribute('data-fixed', fixed.toString());
+    }
+
+    /**
+     * Set placement position indicator
+     * @param {string} position - The placement position
+     */
+    setPosition(position) {
+      this.setAttribute('data-position', position);
     }
   }
 
@@ -1167,10 +1226,36 @@
        */
       this.menuElement = null;
 
+      /**
+       * Animation frame ID for smooth mouse tracking
+       * @type {number|null}
+       */
+      this.animationFrame = null;
+
+      /**
+       * Current placement position
+       * @type {string|null}
+       */
+      this.currentPosition = null;
+
       this.boundHandlers = {
-        mouseMove: this.handleMouseMove.bind(this),
+        mouseMove: this.debounce(this.handleMouseMove.bind(this), 120),
         click: this.handleClick.bind(this),
         escape: this.handleEscape.bind(this)
+      };
+    }
+
+    /**
+     * Debounce function to limit frequent calls
+     * @param {Function} func - Function to debounce
+     * @param {number} wait - Wait time in milliseconds
+     * @returns {Function} Debounced function
+     */
+    debounce(func, wait) {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
       };
     }
 
@@ -1399,7 +1484,7 @@
 
       while (current && current !== document.body && depth < maxDepth) {
         const score = this.calculatePlacementScore(current);
-        if (score > 30) {
+        if (score > 15) {  // Lowered from 30 to 15 for more placement options
           candidates.push({ element: current, score });
         }
         current = current.parentElement;
@@ -1412,10 +1497,11 @@
     }
 
     /**
-     * Update preview position
+     * Update preview position with enhanced placement logic
      * @param {HTMLElement} target - The target element
+     * @param {string} position - Placement position: 'auto', 'before', 'after', 'inside'
      */
-    updatePreview(target) {
+    updatePreview(target, position = 'auto') {
       if (!this.previewElement) {
         this.previewElement = document.createElement('component-preview');
       }
@@ -1427,30 +1513,170 @@
 
       // Add to new position
       if (target && target !== document.body) {
-        const hasChildren = target.children.length > 0;
-        const isInline = window.getComputedStyle(target).display.includes('inline');
-
-        if (hasChildren && !isInline) {
-          target.appendChild(this.previewElement);
-        } else {
-          target.parentNode.insertBefore(this.previewElement, target.nextSibling);
+        // Auto-detect best placement position
+        if (position === 'auto') {
+          position = this.detectBestPlacement(target);
         }
 
-        this.currentTarget = target;
+        // Place based on position
+        try {
+          switch (position) {
+            case 'before':
+              target.parentNode.insertBefore(this.previewElement, target);
+              break;
+            case 'after':
+              target.parentNode.insertBefore(this.previewElement, target.nextSibling);
+              break;
+            case 'inside':
+              // For inside placement, prefer appending to container elements
+              if (this.isContainer(target)) {
+                target.appendChild(this.previewElement);
+              } else {
+                // Fallback to after if inside isn't suitable
+                target.parentNode.insertBefore(this.previewElement, target.nextSibling);
+              }
+              break;
+            default:
+              // Default fallback
+              target.parentNode.insertBefore(this.previewElement, target.nextSibling);
+          }
+
+          this.currentTarget = target;
+          this.currentPosition = position;
+
+          // Update position indicator on preview element
+          if (this.previewElement && this.previewElement.setPosition) {
+            this.previewElement.setPosition(position);
+          }
+        } catch (error) {
+          console.warn('Failed to place preview:', error);
+        }
       }
     }
 
     /**
-     * Handle mouse move event
+     * Detect the best placement position for a target element
+     * @param {HTMLElement} target - The target element
+     * @returns {string} Best placement position
+     */
+    detectBestPlacement(target) {
+      const tagName = target.tagName.toLowerCase();
+      const classList = target.className?.toString().toLowerCase() || '';
+      const style = window.getComputedStyle(target);
+
+      // Check for row-like elements (should place after)
+      if (this.isRowElement(target)) {
+        return 'after';
+      }
+
+      // Check for sidebar elements (should place inside)
+      if (this.isSidebar(target)) {
+        return 'inside';
+      }
+
+      // Check for container elements (prefer inside)
+      if (this.isContainer(target)) {
+        return 'inside';
+      }
+
+      // For inline or small elements, place after
+      if (style.display.includes('inline') || target.offsetHeight < 100) {
+        return 'after';
+      }
+
+      // Default to after for most elements
+      return 'after';
+    }
+
+    /**
+     * Check if element is a row-like element (section, hero, etc.)
+     * @param {HTMLElement} element - Element to check
+     * @returns {boolean} Whether element is row-like
+     */
+    isRowElement(element) {
+      const tagName = element.tagName.toLowerCase();
+      const classList = element.className?.toString().toLowerCase() || '';
+
+      // Tag-based detection
+      if (['section', 'header', 'footer', 'nav'].includes(tagName)) {
+        return true;
+      }
+
+      // Class-based detection
+      const rowPatterns = ['hero', 'section', 'banner', 'header', 'footer', 'row'];
+      return rowPatterns.some(pattern => classList.includes(pattern));
+    }
+
+    /**
+     * Check if element is a sidebar
+     * @param {HTMLElement} element - Element to check
+     * @returns {boolean} Whether element is a sidebar
+     */
+    isSidebar(element) {
+      const tagName = element.tagName.toLowerCase();
+      const classList = element.className?.toString().toLowerCase() || '';
+
+      // Tag-based detection
+      if (tagName === 'aside') {
+        return true;
+      }
+
+      // Class-based detection
+      const sidebarPatterns = ['sidebar', 'side-bar', 'aside', 'widget', 'rail'];
+      return sidebarPatterns.some(pattern => classList.includes(pattern));
+    }
+
+    /**
+     * Check if element is a container suitable for inside placement
+     * @param {HTMLElement} element - Element to check
+     * @returns {boolean} Whether element is a suitable container
+     */
+    isContainer(element) {
+      const tagName = element.tagName.toLowerCase();
+      const classList = element.className?.toString().toLowerCase() || '';
+      const style = window.getComputedStyle(element);
+
+      // Tag-based container detection
+      if (['article', 'main', 'section', 'div'].includes(tagName)) {
+        // Additional checks for div elements
+        if (tagName === 'div') {
+          // Must have container-like classes or sufficient size
+          const containerClasses = ['content', 'container', 'wrapper', 'main'];
+          const hasContainerClass = containerClasses.some(cls => classList.includes(cls));
+          const isLargeEnough = element.offsetWidth >= 300 && element.offsetHeight >= 200;
+
+          return hasContainerClass || isLargeEnough;
+        }
+        return true;
+      }
+
+      // Style-based detection (flexbox and grid containers)
+      if (style.display === 'flex' || style.display === 'grid') {
+        return true;
+      }
+
+      return false;
+    }
+
+    /**
+     * Handle mouse move event with smooth updates
      * @param {MouseEvent} e - The mouse event
      */
     handleMouseMove(e) {
       if (this.mode !== 'placement') return;
 
-      const target = this.findPlacementTarget(e.clientX, e.clientY);
-      if (target && target !== this.currentTarget) {
-        this.updatePreview(target);
+      // Cancel previous animation frame if pending
+      if (this.animationFrame) {
+        cancelAnimationFrame(this.animationFrame);
       }
+
+      // Use requestAnimationFrame for smooth updates
+      this.animationFrame = requestAnimationFrame(() => {
+        const target = this.findPlacementTarget(e.clientX, e.clientY);
+        if (target && target !== this.currentTarget) {
+          this.updatePreview(target);
+        }
+      });
     }
 
     /**
@@ -1469,7 +1695,7 @@
         this.fixedPlacement = {
           element: this.currentTarget,
           selector: this.generateSelector(this.currentTarget),
-          position: this.previewElement.parentNode === this.currentTarget ? 'inside' : 'after'
+          position: this.currentPosition || 'after'
         };
 
         // Update preview state
@@ -1571,6 +1797,12 @@
       document.removeEventListener('mousemove', this.boundHandlers.mouseMove);
       document.removeEventListener('click', this.boundHandlers.click);
       document.removeEventListener('keydown', this.boundHandlers.escape);
+
+      // Cancel any pending animation frame
+      if (this.animationFrame) {
+        cancelAnimationFrame(this.animationFrame);
+        this.animationFrame = null;
+      }
 
       if (this.previewElement) {
         this.previewElement.remove();

@@ -380,9 +380,19 @@ class WhitePaperWidget extends HTMLElement {
         }
       }
 
-      /* Extra large: Maximum comfortable reading width */
+      /* Extra large: Use full width with centered content for readability */
       @container (min-width: 800px) {
-        .widget {
+        .content {
+          max-width: 800px;
+          margin: 0 auto;
+        }
+
+        .header {
+          max-width: 800px;
+          margin: 0 auto;
+        }
+
+        .footer {
           max-width: 800px;
           margin: 0 auto;
         }

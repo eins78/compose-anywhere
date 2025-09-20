@@ -580,10 +580,104 @@
             console.groupEnd();
         }
 
-        // Show container information
+        // Show container information with visual feedback
         function showContainerInfo() {
-            const allContainers = document.querySelectorAll('.demo-content, .demo-container, .grid-container, .flex-container');
+            const allContainers = document.querySelectorAll('.demo-content, .demo-container, .grid-container, .flex-container, .hero-section, .article-container');
 
+            // Remove existing info panels
+            document.querySelectorAll('.container-info-panel, .container-overlay').forEach(el => el.remove());
+
+            // Create main info panel
+            const infoPanel = document.createElement('div');
+            infoPanel.className = 'container-info-panel';
+            infoPanel.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+                padding: 20px;
+                z-index: 10000;
+                max-width: 350px;
+                max-height: 80vh;
+                overflow-y: auto;
+                font-family: system-ui, sans-serif;
+                font-size: 14px;
+                line-height: 1.4;
+            `;
+
+            let panelContent = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #1e293b;">📊 Container Analysis</h3>
+                    <button onclick="this.parentElement.parentElement.remove()" style="
+                        background: #ef4444; color: white; border: none; border-radius: 4px;
+                        padding: 4px 8px; cursor: pointer; font-size: 12px;
+                    ">✕</button>
+                </div>
+                <p style="margin-bottom: 15px; color: #64748b;">
+                    Found ${allContainers.length} containers. Hover over items to highlight on page.
+                </p>
+            `;
+
+            allContainers.forEach((container, index) => {
+                const rect = container.getBoundingClientRect();
+                const style = window.getComputedStyle(container);
+                const score = calculateBasicScore(container, rect, style);
+
+                // Determine score color
+                let scoreColor = '#ef4444'; // Red for poor
+                if (score >= 40) scoreColor = '#10b981'; // Green for excellent
+                else if (score >= 25) scoreColor = '#f59e0b'; // Orange for good
+
+                // Create container info item
+                panelContent += `
+                    <div class="container-item" data-index="${index}" style="
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        padding: 12px;
+                        margin-bottom: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        background: white;
+                    " onmouseover="highlightContainer(${index})" onmouseout="removeHighlight(${index})">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="color: #1e293b;">Container ${index + 1}</strong>
+                            <span style="
+                                background: ${scoreColor};
+                                color: white;
+                                padding: 2px 6px;
+                                border-radius: 3px;
+                                font-size: 11px;
+                                font-weight: 600;
+                            ">${score}</span>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 12px; color: #64748b;">
+                            ${rect.width.toFixed(0)}×${rect.height.toFixed(0)}px • ${style.display} • ${container.tagName.toLowerCase()}
+                        </div>
+                        <div style="margin-top: 5px; font-size: 11px; color: #94a3b8;">
+                            ${container.className ? container.className.split(' ').slice(0, 2).join(', ') : 'no classes'}
+                        </div>
+                    </div>
+                `;
+            });
+
+            panelContent += `
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
+                    <strong>Score Legend:</strong><br>
+                    <span style="color: #10b981;">●</span> 40+ Excellent placement target<br>
+                    <span style="color: #f59e0b;">●</span> 25+ Good placement option<br>
+                    <span style="color: #ef4444;">●</span> 15+ Poor but possible
+                </div>
+            `;
+
+            infoPanel.innerHTML = panelContent;
+            document.body.appendChild(infoPanel);
+
+            // Store containers for highlighting
+            window.analysisContainers = Array.from(allContainers);
+
+            // Console log for developers
             console.group('📊 Container Analysis');
             allContainers.forEach((container, index) => {
                 const rect = container.getBoundingClientRect();
@@ -601,6 +695,61 @@
                 });
             });
             console.groupEnd();
+        }
+
+        // Highlight specific container
+        function highlightContainer(index) {
+            if (!window.analysisContainers) return;
+
+            const container = window.analysisContainers[index];
+            if (!container) return;
+
+            // Remove existing highlights
+            document.querySelectorAll('.container-highlight').forEach(el => el.remove());
+
+            // Create highlight overlay
+            const rect = container.getBoundingClientRect();
+            const highlight = document.createElement('div');
+            highlight.className = 'container-highlight';
+            highlight.style.cssText = `
+                position: fixed;
+                top: ${rect.top}px;
+                left: ${rect.left}px;
+                width: ${rect.width}px;
+                height: ${rect.height}px;
+                background: rgba(59, 130, 246, 0.2);
+                border: 2px solid #3b82f6;
+                border-radius: 4px;
+                pointer-events: none;
+                z-index: 9999;
+                transition: all 0.2s ease;
+            `;
+
+            document.body.appendChild(highlight);
+
+            // Add info tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = 'container-highlight';
+            tooltip.style.cssText = `
+                position: fixed;
+                top: ${rect.top - 5}px;
+                left: ${rect.left}px;
+                background: #1e293b;
+                color: white;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-family: system-ui, sans-serif;
+                z-index: 10000;
+                pointer-events: none;
+            `;
+            tooltip.textContent = `${rect.width.toFixed(0)}×${rect.height.toFixed(0)}px`;
+            document.body.appendChild(tooltip);
+        }
+
+        // Remove highlight
+        function removeHighlight(index) {
+            document.querySelectorAll('.container-highlight').forEach(el => el.remove());
         }
 
         // Basic scoring approximation for demo

@@ -186,12 +186,24 @@ await page.evaluate(() => {
 });
 ```
 
-### Issue: Screenshots not saving to filesystem
-**Solution**: Puppeteer MCP saves screenshots to browser context, not filesystem
+### Issue: Screenshots not saving to filesystem ⚠️ CRITICAL
+**Problem**: Puppeteer MCP screenshots only visible in Claude interface, NOT saved as files
+**Root Cause**: MCP server limitation - screenshots exist only in browser context
+**Impact**: Cannot create persistent visual documentation
+
+**Solutions**:
 ```bash
-# Screenshots visible in Claude but need manual export
-# Use tmp/ folders for organized testing
-mkdir -p tmp/test-name-$(date +%Y-%m-%d)
+# 1. Create detailed test reports instead
+echo "# Test Report" > tmp/test-name-$(date +%Y-%m-%d)/test-report.md
+
+# 2. Update MCP filesystem permissions to include tmp/
+# In .mcp.json:
+"ALLOWED_DIRS": "./src,./examples,./docs,./scripts,./tmp"
+
+# 3. Use alternative tools for persistent screenshots
+# - Browser dev tools manual capture
+# - Playwright with file output
+# - External screenshot services
 ```
 
 ### Issue: Shadow DOM form interaction
