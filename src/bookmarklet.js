@@ -61,9 +61,15 @@
 
   /**
    * @typedef {Object} ComponentConfig
-   * @property {number} width - Component width in pixels
-   * @property {number} height - Component height in pixels  
-   * @property {string} src - Component iframe source URL
+   * @property {string} type - Component type identifier
+   * @property {boolean} responsive - Whether component is responsive
+   * @property {number} minWidth - Minimum width in pixels
+   * @property {number} maxWidth - Maximum width in pixels
+   * @property {string} aspectRatio - Aspect ratio or 'auto'
+   * @property {string} src - Component source URL or inline HTML
+   * @property {boolean} containerQuery - Whether component uses container queries
+   * @property {number} [width] - Legacy fixed width (deprecated)
+   * @property {number} [height] - Legacy fixed height (deprecated)
    */
 
   /**
@@ -78,9 +84,16 @@
    * @type {ComponentConfig}
    */
   const COMPONENT_CONFIG = {
+    type: 'white-paper',
+    responsive: true,
+    minWidth: 280,
+    maxWidth: 800,
+    aspectRatio: 'auto',
+    containerQuery: true,
+    src: 'component', // Will render inline component
+    // Legacy support for fixed-size components
     width: 480,
-    height: 270,
-    src: 'https://example.com/component' // Replace with your component URL
+    height: 270
   };
 
   /**
@@ -104,6 +117,394 @@
   };
 
   /**
+   * White Paper Download Widget - Responsive Web Component
+   * Features container queries for true responsiveness
+   */
+  class WhitePaperWidget extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.render();
+    }
+
+    getTemplate() {
+      return `
+        <div class="widget">
+          <header class="header">
+            <div class="icon">📄</div>
+            <div class="header-content">
+              <h2 class="title">Download Our White Paper</h2>
+              <p class="subtitle">Modern Web Development Insights</p>
+            </div>
+          </header>
+
+          <div class="content">
+            <div class="form-section">
+              <p class="description">
+                Get expert insights on building responsive, accessible web applications
+                with the latest technologies and best practices.
+              </p>
+
+              <form class="form" action="#" method="post">
+                <div class="input-group">
+                  <label for="email" class="sr-only">Email address</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    required
+                    class="email-input"
+                  >
+                  <button type="submit" class="download-btn">
+                    <span class="btn-icon">⬇</span>
+                    <span class="btn-text">Download PDF</span>
+                  </button>
+                </div>
+
+                <p class="privacy-note">
+                  We respect your privacy. Unsubscribe at any time.
+                </p>
+              </form>
+            </div>
+
+            <aside class="illustration" aria-hidden="true">
+              <svg viewBox="0 0 200 160" class="illustration-svg">
+                <rect x="20" y="40" width="120" height="100" rx="8" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+                <rect x="30" y="30" width="120" height="100" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+                <rect x="40" y="20" width="120" height="100" rx="8" fill="#3b82f6" opacity="0.1" stroke="#3b82f6" stroke-width="2"/>
+                <line x1="50" y1="40" x2="130" y2="40" stroke="#cbd5e1" stroke-width="2"/>
+                <line x1="50" y1="50" x2="140" y2="50" stroke="#cbd5e1" stroke-width="2"/>
+                <line x1="50" y1="60" x2="120" y2="60" stroke="#cbd5e1" stroke-width="2"/>
+                <circle cx="170" cy="70" r="15" fill="#10b981"/>
+                <path d="M165 65 L170 75 L175 65" stroke="white" stroke-width="2" fill="none"/>
+                <line x1="170" y1="60" x2="170" y2="70" stroke="white" stroke-width="2"/>
+              </svg>
+            </aside>
+          </div>
+
+          <footer class="footer">
+            <div class="company-info">
+              <span class="company-name">YourCompany</span>
+              <span class="separator">•</span>
+              <span class="pages">12 pages</span>
+              <span class="separator">•</span>
+              <span class="format">PDF</span>
+            </div>
+          </footer>
+        </div>
+      `;
+    }
+
+    getStyles() {
+      return `
+        :host {
+          --color-primary: #3b82f6;
+          --color-primary-hover: #2563eb;
+          --color-success: #10b981;
+          --color-success-hover: #059669;
+          --color-text: #1e293b;
+          --color-text-muted: #64748b;
+          --color-background: #ffffff;
+          --color-surface: #f8fafc;
+          --color-border: #e2e8f0;
+
+          --spacing-xs: 0.5rem;
+          --spacing-sm: 0.75rem;
+          --spacing-md: 1rem;
+          --spacing-lg: 1.5rem;
+          --spacing-xl: 2rem;
+
+          --radius-sm: 0.375rem;
+          --radius-md: 0.5rem;
+          --radius-lg: 0.75rem;
+
+          --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+          --title-size: clamp(1.25rem, 5cqi, 1.875rem);
+          --subtitle-size: clamp(0.875rem, 3cqi, 1rem);
+          --body-size: clamp(0.875rem, 2.5cqi, 1rem);
+
+          display: block;
+          font-family: var(--font-family);
+          line-height: 1.6;
+        }
+
+        .widget {
+          container-type: inline-size;
+          width: 100%;
+          background: var(--color-background);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+          overflow: hidden;
+        }
+
+        .header {
+          background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+          color: white;
+          padding: var(--spacing-lg);
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-md);
+        }
+
+        .icon {
+          font-size: 2rem;
+          line-height: 1;
+          opacity: 0.9;
+        }
+
+        .header-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .title {
+          margin: 0;
+          font-size: var(--title-size);
+          font-weight: 600;
+          line-height: 1.2;
+        }
+
+        .subtitle {
+          margin: 0.25rem 0 0 0;
+          font-size: var(--subtitle-size);
+          opacity: 0.9;
+          font-weight: 400;
+        }
+
+        .content {
+          padding: var(--spacing-lg);
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-lg);
+        }
+
+        .form-section {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .description {
+          margin: 0 0 var(--spacing-lg) 0;
+          font-size: var(--body-size);
+          color: var(--color-text-muted);
+          line-height: 1.6;
+        }
+
+        .form {
+          width: 100%;
+        }
+
+        .input-group {
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-sm);
+          margin-bottom: var(--spacing-md);
+        }
+
+        .email-input {
+          padding: var(--spacing-sm) var(--spacing-md);
+          border: 2px solid var(--color-border);
+          border-radius: var(--radius-md);
+          font-size: var(--body-size);
+          font-family: inherit;
+          background: var(--color-background);
+          transition: border-color 0.2s ease;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .email-input:focus {
+          outline: none;
+          border-color: var(--color-primary);
+          box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+        }
+
+        .download-btn {
+          background: var(--color-success);
+          color: white;
+          border: none;
+          padding: var(--spacing-sm) var(--spacing-lg);
+          border-radius: var(--radius-md);
+          font-size: var(--body-size);
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--spacing-xs);
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .download-btn:hover {
+          background: var(--color-success-hover);
+        }
+
+        .btn-icon {
+          font-size: 1.1em;
+        }
+
+        .privacy-note {
+          margin: 0;
+          font-size: 0.75rem;
+          color: var(--color-text-muted);
+          text-align: center;
+        }
+
+        .illustration {
+          display: none;
+          flex-shrink: 0;
+          align-self: center;
+        }
+
+        .illustration-svg {
+          width: 100%;
+          height: auto;
+          max-width: 200px;
+          max-height: 160px;
+        }
+
+        .footer {
+          background: var(--color-surface);
+          padding: var(--spacing-md) var(--spacing-lg);
+          border-top: 1px solid var(--color-border);
+        }
+
+        .company-info {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--spacing-xs);
+          font-size: 0.75rem;
+          color: var(--color-text-muted);
+          flex-wrap: wrap;
+        }
+
+        .company-name {
+          font-weight: 500;
+          color: var(--color-text);
+        }
+
+        .separator {
+          opacity: 0.5;
+        }
+
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        @container (min-width: 400px) {
+          .content {
+            flex-direction: row;
+            align-items: flex-start;
+          }
+
+          .form-section {
+            flex: 1;
+          }
+
+          .illustration {
+            display: block;
+            width: 140px;
+          }
+
+          .input-group {
+            flex-direction: row;
+            align-items: stretch;
+          }
+
+          .email-input {
+            flex: 1;
+          }
+
+          .download-btn {
+            width: auto;
+            white-space: nowrap;
+            flex-shrink: 0;
+          }
+        }
+
+        @container (min-width: 600px) {
+          .header {
+            padding: var(--spacing-xl);
+          }
+
+          .content {
+            padding: var(--spacing-xl);
+            gap: var(--spacing-xl);
+          }
+
+          .illustration {
+            width: 200px;
+          }
+
+          .description {
+            margin-bottom: var(--spacing-xl);
+          }
+
+          .company-info {
+            justify-content: flex-start;
+          }
+        }
+
+        @container (min-width: 800px) {
+          .widget {
+            max-width: 800px;
+            margin: 0 auto;
+          }
+        }
+      `;
+    }
+
+    render() {
+      this.shadowRoot.innerHTML = `
+        <style>${this.getStyles()}</style>
+        ${this.getTemplate()}
+      `;
+
+      const form = this.shadowRoot.querySelector('.form');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const email = this.shadowRoot.querySelector('.email-input').value.trim();
+          if (email) {
+            this.dispatchEvent(new CustomEvent('download-request', {
+              detail: { email },
+              bubbles: true
+            }));
+
+            const btn = form.querySelector('.download-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-text">Downloading...</span>';
+            btn.disabled = true;
+
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.disabled = false;
+              this.shadowRoot.querySelector('.email-input').value = '';
+            }, 2000);
+          }
+        });
+      }
+    }
+  }
+
+  // Register the custom element
+  if (!customElements.get('white-paper-widget')) {
+    customElements.define('white-paper-widget', WhitePaperWidget);
+  }
+
+  /**
    * Custom element for the component preview
    * Uses Shadow DOM for style encapsulation
    */
@@ -115,68 +516,230 @@
     }
 
     /**
-     * Render the preview element with encapsulated styles
+     * Render the live component preview with advanced overlay system
      */
     render() {
+      const containerWidth = this.getContainerWidth();
+
       this.shadowRoot.innerHTML = `
         <style>
           :host {
             ${getBaseStyles()}
             display: block;
-            width: ${COMPONENT_CONFIG.width}px;
-            height: ${COMPONENT_CONFIG.height}px;
             position: relative;
             margin: var(--spacing-md) 0;
+            /* Responsive sizing */
+            min-width: ${COMPONENT_CONFIG.minWidth}px;
+            max-width: ${COMPONENT_CONFIG.maxWidth}px;
+            width: 100%;
+            --overlay-opacity: 0.2; /* 80% transparent in placement mode */
           }
-          
-          .preview-box {
+
+          :host([data-fixed="true"]) {
+            --overlay-opacity: 0.1; /* 90% transparent in fixed mode */
+          }
+
+          :host(:hover) {
+            --overlay-opacity: 0.05; /* 95% transparent on hover */
+          }
+
+          .preview-container {
+            position: relative;
+            width: 100%;
+            /* Container queries support */
+            container-type: inline-size;
+            isolation: isolate;
+          }
+
+          .component-wrapper {
+            position: relative;
+            width: 100%;
+            /* Remove fixed height to let component determine its size */
+            min-height: 200px;
+
+            /* Advanced dashed border using outline (doesn't affect layout) */
+            outline: 2px dashed var(--color-primary);
+            outline-offset: -2px;
+            border-radius: var(--radius-lg);
+
+            transition: all var(--transition-base);
+            overflow: hidden;
+          }
+
+          :host([data-fixed="true"]) .component-wrapper {
+            outline-style: solid;
+            box-shadow: var(--shadow-lg);
+          }
+
+          /* Transparent overlay system */
+          .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(59, 130, 246, var(--overlay-opacity));
+            pointer-events: none;
+            border-radius: var(--radius-lg);
+            transition: background-color var(--transition-base);
+            z-index: 10;
+          }
+
+          /* Live component container */
+          .live-component {
             width: 100%;
             height: 100%;
-            border: 2px dashed var(--color-primary);
-            background: rgba(59, 130, 246, 0.05);
-            border-radius: var(--radius-lg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: var(--font-family);
-            font-size: var(--font-size-base);
-            color: var(--color-primary);
             position: relative;
-            box-sizing: border-box;
-            transition: all var(--transition-base);
           }
-          
-          :host([data-fixed="true"]) .preview-box {
-            border-style: solid;
-            background: rgba(59, 130, 246, 0.03);
-            box-shadow: var(--shadow-md);
-          }
-          
-          .label {
-            pointer-events: none;
-            user-select: none;
+
+          /* Status indicator */
+          .status-indicator {
+            position: absolute;
+            top: var(--spacing-sm);
+            right: var(--spacing-sm);
+            background: var(--color-primary);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
             font-weight: var(--font-weight-medium);
+            z-index: 20;
+            opacity: 0.9;
+            transition: opacity var(--transition-base);
             display: flex;
             align-items: center;
-            gap: var(--spacing-sm);
+            gap: var(--spacing-xs);
           }
-          
-          .icon {
-            width: 20px;
-            height: 20px;
-            opacity: 0.8;
+
+          :host([data-fixed="true"]) .status-indicator {
+            background: var(--color-success);
+          }
+
+          .status-icon {
+            width: 12px;
+            height: 12px;
+          }
+
+          /* Responsive container width indicator */
+          .width-indicator {
+            position: absolute;
+            bottom: var(--spacing-sm);
+            left: var(--spacing-sm);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            font-family: monospace;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity var(--transition-base);
+          }
+
+          :host(:hover) .width-indicator {
+            opacity: 1;
+          }
+
+          /* Ensure component is properly contained */
+          white-paper-widget {
+            width: 100%;
+            height: auto;
+            display: block;
           }
         </style>
-        <div class="preview-box">
-          <span class="label">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-            </svg>
-            Component Preview
-          </span>
+
+        <div class="preview-container">
+          <div class="component-wrapper">
+            <!-- Live component preview -->
+            <div class="live-component">
+              <white-paper-widget></white-paper-widget>
+            </div>
+
+            <!-- Overlay system -->
+            <div class="overlay"></div>
+
+            <!-- Status indicator -->
+            <div class="status-indicator">
+              <svg class="status-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="${this.getAttribute('data-fixed') === 'true'
+                    ? 'M5 13l4 4L19 7'
+                    : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z'}" />
+              </svg>
+              ${this.getAttribute('data-fixed') === 'true' ? 'Placed' : 'Preview'}
+            </div>
+
+            <!-- Responsive width indicator -->
+            <div class="width-indicator">
+              ${containerWidth}px
+            </div>
+          </div>
         </div>
       `;
+
+      // Set up component interaction handlers
+      this.setupComponentHandlers();
+    }
+
+    /**
+     * Get the available container width for responsive sizing
+     * @returns {number} Container width in pixels
+     */
+    getContainerWidth() {
+      const parent = this.parentElement;
+      if (!parent) return COMPONENT_CONFIG.width;
+
+      const parentRect = parent.getBoundingClientRect();
+      const availableWidth = parentRect.width - 32; // Account for padding
+
+      return Math.max(
+        COMPONENT_CONFIG.minWidth,
+        Math.min(COMPONENT_CONFIG.maxWidth, availableWidth)
+      );
+    }
+
+    /**
+     * Setup event handlers for the live component
+     */
+    setupComponentHandlers() {
+      const widget = this.shadowRoot.querySelector('white-paper-widget');
+      if (widget) {
+        // Handle download requests from the widget
+        widget.addEventListener('download-request', (e) => {
+          console.log('White paper download requested:', e.detail);
+
+          // In a real implementation, this would trigger actual download logic
+          // For demo purposes, we'll just show a notification
+          this.showDownloadNotification(e.detail.email);
+        });
+      }
+    }
+
+    /**
+     * Show a temporary download notification
+     * @param {string} email - The email address entered
+     */
+    showDownloadNotification(email) {
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        font-family: system-ui, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-break: break-word;
+      `;
+      notification.textContent = `Download initiated for ${email}`;
+
+      document.body.appendChild(notification);
+
+      setTimeout(() => {
+        notification.remove();
+      }, 3000);
     }
 
     /**
@@ -683,45 +1246,140 @@
     }
 
     /**
-     * Calculate placement score for an element
+     * Calculate placement score for an element with responsive awareness
      * @param {HTMLElement} element - The element to score
      * @returns {number} Score from 0 to 100
      */
     calculatePlacementScore(element) {
       let score = 0;
-      
+
       const tagName = element.tagName.toLowerCase();
       const classList = element.className?.toString().toLowerCase() || '';
       const id = element.id?.toLowerCase() || '';
-      
-      // Tag score (0-30)
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      // Tag score (0-25) - reduced to make room for responsive scoring
       if (CONTAINER_PATTERNS.tags.includes(tagName)) {
-        score += 30;
+        score += 25;
       } else if (['div', 'section'].includes(tagName)) {
-        score += 10;
+        score += 8;
       }
-      
-      // Class score (0-40)
-      const classMatches = CONTAINER_PATTERNS.classes.filter(pattern => 
+
+      // Class score (0-30) - reduced to make room for responsive scoring
+      const classMatches = CONTAINER_PATTERNS.classes.filter(pattern =>
         classList.includes(pattern) || id.includes(pattern)
       );
-      score += Math.min(40, classMatches.length * 20);
-      
-      // Size score (0-20)
-      const rect = element.getBoundingClientRect();
-      if (rect.width >= COMPONENT_CONFIG.width && rect.height >= 100) {
-        score += 20;
-      } else if (rect.width >= COMPONENT_CONFIG.width) {
-        score += 10;
+      score += Math.min(30, classMatches.length * 15);
+
+      // Responsive size score (0-25) - enhanced for responsive components
+      const availableWidth = rect.width;
+      const availableHeight = rect.height;
+
+      if (COMPONENT_CONFIG.responsive) {
+        // Score based on responsive breakpoints
+        if (availableWidth >= COMPONENT_CONFIG.maxWidth) {
+          score += 25; // Ideal width for maximum responsive behavior
+        } else if (availableWidth >= 600) {
+          score += 20; // Good width for desktop layout
+        } else if (availableWidth >= 400) {
+          score += 15; // Medium width for tablet layout
+        } else if (availableWidth >= COMPONENT_CONFIG.minWidth) {
+          score += 10; // Minimum acceptable width
+        } else {
+          score -= 10; // Penalize too narrow containers
+        }
+
+        // Bonus for containers with good height
+        if (availableHeight >= 300) {
+          score += 5;
+        }
+      } else {
+        // Legacy fixed-size scoring
+        if (availableWidth >= COMPONENT_CONFIG.width && availableHeight >= 100) {
+          score += 25;
+        } else if (availableWidth >= COMPONENT_CONFIG.width) {
+          score += 15;
+        }
       }
-      
-      // Position score (0-10)
-      const style = window.getComputedStyle(element);
+
+      // Layout context score (0-15) - new responsive-aware scoring
+      if (style.display === 'flex' || style.display === 'grid') {
+        score += 10; // Modern layout containers are great for responsive components
+      }
+
       if (style.position === 'relative' || style.position === 'static') {
+        score += 5; // Good for document flow
+      }
+
+      // Container query support detection (0-10) - new feature
+      if (this.supportsContainerQueries(element)) {
         score += 10;
       }
-      
-      return Math.min(100, score);
+
+      // Responsive design hints (0-10) - new feature
+      if (this.hasResponsiveDesignHints(element, classList)) {
+        score += 5;
+      }
+
+      // Penalize problematic containers
+      if (style.overflow === 'hidden' && availableHeight < 200) {
+        score -= 5; // Hidden overflow with low height might crop content
+      }
+
+      if (style.position === 'fixed' || style.position === 'absolute') {
+        score -= 5; // Positioned elements might not be ideal for responsive components
+      }
+
+      return Math.max(0, Math.min(100, score));
+    }
+
+    /**
+     * Check if element supports container queries
+     * @param {HTMLElement} element - The element to check
+     * @returns {boolean} Whether container queries are supported
+     */
+    supportsContainerQueries(element) {
+      // Check for CSS.supports if available
+      if (typeof CSS !== 'undefined' && CSS.supports) {
+        return CSS.supports('container-type', 'inline-size');
+      }
+
+      // Fallback: check for modern browser features
+      return 'ResizeObserver' in window && 'CSS' in window;
+    }
+
+    /**
+     * Detect responsive design hints in element
+     * @param {HTMLElement} element - The element to check
+     * @param {string} classList - The element's class list as string
+     * @returns {boolean} Whether element has responsive design hints
+     */
+    hasResponsiveDesignHints(element, classList) {
+      // Check for responsive class patterns
+      const responsivePatterns = [
+        'responsive', 'fluid', 'adaptive', 'flex', 'grid',
+        'container', 'wrapper', 'layout', 'col-', 'row-'
+      ];
+
+      const hasResponsiveClass = responsivePatterns.some(pattern =>
+        classList.includes(pattern)
+      );
+
+      if (hasResponsiveClass) return true;
+
+      // Check for CSS Grid or Flexbox usage
+      const style = window.getComputedStyle(element);
+      if (style.display === 'grid' || style.display === 'flex') {
+        return true;
+      }
+
+      // Check for viewport-relative units in width
+      if (style.width.includes('vw') || style.width.includes('%')) {
+        return true;
+      }
+
+      return false;
     }
 
     /**

@@ -4,13 +4,15 @@ Visual component placement tool - drop any component on any website with smart c
 
 ## What is Compose Anywhere?
 
-Compose Anywhere is a visual placement tool that helps developers and website owners integrate components into their existing websites. It provides:
+Compose Anywhere is a visual placement tool that helps developers and website owners integrate responsive components into their existing websites. It provides:
 
-- 🎯 **Visual Placement** - See exactly where your component will appear
-- 🧠 **Smart Detection** - Automatically finds optimal container elements
-- 📋 **Instant Code** - Generate embed code with one click
-- 🔒 **Zero Conflicts** - Shadow DOM ensures style isolation
-- 🚀 **No Dependencies** - Pure JavaScript, works anywhere
+- 🎯 **Live Preview** - See the actual component with real interactivity
+- 📱 **Responsive Components** - Components adapt to any container size
+- 🧠 **Smart Detection** - AI-powered container scoring with responsive awareness
+- 🎨 **Advanced Overlay** - Configurable transparency and visual feedback
+- 📋 **Instant Code** - Generate responsive embed code with one click
+- 🔒 **Zero Conflicts** - Shadow DOM ensures complete style isolation
+- 🚀 **No Dependencies** - Pure JavaScript with container query support
 
 ## Use Cases
 
@@ -28,15 +30,19 @@ Perfect for embedding any type of component:
 ```
 compose-anywhere/
 ├── src/
-│   └── bookmarklet.js       # Main placement tool code (all-in-one)
+│   ├── bookmarklet.js       # Main placement tool with responsive features
+│   └── components/
+│       └── white-paper-widget.js # Example responsive component
 ├── examples/
-│   └── test.html            # Test page for development
+│   ├── test.html            # Basic test page for development
+│   ├── responsive-demo.html # Responsive component showcase
+│   └── generated/           # Generated sample files
 ├── scripts/
 │   └── create-bookmarklet.js # Convert to bookmarklet URL
 ├── docs/
 │   ├── platform-integration.md
 │   └── brand-guidelines.md
-├── screenshots/             # Test screenshots
+├── screenshots/             # Test screenshots and demos
 ├── dist/                    # Generated files
 ├── package.json
 ├── .mcp.json                # MCP configuration for Claude Code
@@ -45,6 +51,81 @@ compose-anywhere/
 ├── .gitignore
 └── README.md
 ```
+
+## 🚀 Responsive Features
+
+### Hyper-Responsive Components
+
+Compose Anywhere now features **true responsive components** that adapt to their container size using container queries, not viewport-based media queries.
+
+#### Example: White Paper Download Widget
+
+The included white paper widget demonstrates responsive behavior across different container widths:
+
+- **280px (Mobile)**: Stacked layout, minimal spacing, no illustration
+- **400px (Tablet)**: Side-by-side form, small illustration appears
+- **600px (Desktop)**: Enhanced spacing, large illustration, optimal typography
+- **800px+ (Wide)**: Centered layout, maximum readability
+
+```javascript
+// Container queries adapt to actual container width
+@container (min-width: 400px) {
+  .content {
+    flex-direction: row; /* Side-by-side layout */
+  }
+  .illustration {
+    display: block; /* Show illustration */
+  }
+}
+```
+
+### Advanced Placement System
+
+#### Live Preview
+- **Real Component Rendering**: See the actual widget, not just a placeholder
+- **Interactive Preview**: Forms work, buttons respond, full functionality
+- **Responsive Sizing**: Components adapt to container width in real-time
+
+#### Smart Container Detection
+Enhanced scoring algorithm considers:
+- **Responsive breakpoints** (280px, 400px, 600px, 800px)
+- **Layout context** (flexbox, grid containers get higher scores)
+- **Container query support** detection
+- **Responsive design hints** (classes, CSS properties)
+
+#### Visual Feedback System
+- **Dashed border overlay** (doesn't affect layout using `outline`)
+- **Configurable transparency**: 80% in placement mode, 95% on hover
+- **Status indicators**: Preview/Placed state with icons
+- **Width indicators**: Shows current container width
+
+### Container Query Support
+
+Modern browsers support CSS container queries, enabling components to respond to their container rather than the viewport:
+
+```css
+.widget {
+  container-type: inline-size; /* Enable container queries */
+}
+
+@container (min-width: 600px) {
+  .title { font-size: clamp(1.5rem, 4cqi, 2.5rem); }
+}
+```
+
+**Browser Support:**
+- Chrome/Edge 105+ ✅
+- Firefox 110+ ✅
+- Safari 16+ ✅
+
+### Testing Responsive Behavior
+
+Use the **responsive demo page** (`examples/responsive-demo.html`) to test:
+
+1. Different container widths (280px to 800px)
+2. Various layout contexts (flexbox, grid, traditional)
+3. Real-world scenarios (hero sections, sidebars, articles)
+4. Container query demonstrations
 
 ## Development Setup
 
@@ -187,15 +268,32 @@ claude "Test the bookmarklet on news.ycombinator.com and take screenshots"
 
 ## Features Roadmap
 
-- [x] Basic placement detection
-- [x] Shadow DOM encapsulation
-- [x] Embed code generation
-- [ ] Multiple component types
-- [ ] Responsive component detection
-- [ ] Better selector algorithm
-- [ ] Persistence (localStorage)
-- [ ] Visual feedback improvements
-- [ ] Build system integration
+### ✅ Completed (v2.0 - Responsive Edition)
+- [x] **Basic placement detection** - Smart container scoring
+- [x] **Shadow DOM encapsulation** - Complete style isolation
+- [x] **Embed code generation** - Responsive-aware output
+- [x] **Live component preview** - Real interactive widgets
+- [x] **Responsive component detection** - Container query aware
+- [x] **Advanced selector algorithm** - Responsive-aware scoring
+- [x] **Visual feedback improvements** - Advanced overlay system
+- [x] **Container query support** - Modern CSS features
+- [x] **Example responsive component** - White paper download widget
+- [x] **Responsive demo page** - Comprehensive testing environment
+
+### 🚧 In Progress
+- [ ] **Multiple component types** - Expanding beyond white paper widget
+- [ ] **Component marketplace** - Library of pre-built responsive components
+- [ ] **Advanced placement options** - Before/after/inside positioning UI
+
+### 🔮 Future Features
+- [ ] **Persistence (localStorage)** - Remember preferences and placements
+- [ ] **Build system integration** - Optional Vite/TypeScript setup
+- [ ] **A/B testing integration** - Test different component variants
+- [ ] **Analytics integration** - Track placement performance
+- [ ] **Custom component builder** - Visual component creation tool
+- [ ] **Mobile-first responsive design** - Touch-optimized placement
+- [ ] **Accessibility enhancements** - ARIA support, keyboard navigation
+- [ ] **Real-time collaboration** - Multi-user placement sessions
 
 ## Browser Support
 
