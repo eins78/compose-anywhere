@@ -18,6 +18,7 @@
     "docs": "claude 'Generate documentation from TSDoc comments'",
     "bookmarklet": "node scripts/create-bookmarklet.js",
     "serve": "serve . -p 8080",
+    "review": "./.claude/commands/review.sh",
     "format": "prettier --write '**/*.{js,json,md}'",
     "clean": "rm -rf test-results/ screenshots/ docs/generated/ examples/generated/"
   },
