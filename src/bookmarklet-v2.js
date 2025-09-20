@@ -18,9 +18,9 @@
       primaryHover: '#2563eb',
       success: '#10b981',
       successHover: '#059669',
-      overlay: 'rgba(59, 130, 246, 0.1)',
-      overlayBorder: '#3b82f6',
-      focus: '#3b82f6'
+      overlay: 'rgba(16, 185, 129, 0.3)',  // Green with more opacity
+      overlayBorder: '#10b981',  // Green border
+      focus: '#10b981'  // Green focus
     },
     animations: {
       fast: '150ms',
@@ -95,11 +95,11 @@
 
           .overlay.focused {
             border-width: 3px;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
           }
 
           .label {
-            background: var(--color-primary);
+            background: var(--color-success);
             color: white;
             padding: 8px 16px;
             border-radius: 4px;
