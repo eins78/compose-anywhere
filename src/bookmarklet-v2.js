@@ -459,10 +459,15 @@
               <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
               Copy as &lt;script&gt; tag
             </button>
-            <button class="export-button" data-export="bookmarklet">
+            <a class="export-button bookmarklet-link"
+               data-export="bookmarklet"
+               href="${this.getBookmarkletHref()}"
+               role="button"
+               aria-label="Copy bookmarklet or drag to bookmarks bar"
+               title="Click to copy or drag to bookmarks bar">
               <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
               Copy as Bookmarklet
-            </button>
+            </a>
           </div>
         </div>
       `;
@@ -516,7 +521,7 @@
         const button = e.target.closest('.export-button');
         if (button) {
           const type = button.dataset.export;
-          this.handleExport(type);
+          this.handleExport(type, e);
         }
       });
 
@@ -579,7 +584,7 @@
       this.setupEventListeners();
     }
 
-    handleExport(type) {
+    handleExport(type, event) {
       if (!this.targetElement || !this.selectedSelector) {
         this.showStatus('Please select a target first', false);
         return;
@@ -588,6 +593,10 @@
       const embedCode = this.generateEmbedCode(type);
 
       if (type === 'bookmarklet') {
+        // Prevent default link behavior when copying
+        if (event) {
+          event.preventDefault();
+        }
         // Create bookmarklet link
         const bookmarkletCode = `javascript:(function(){${encodeURIComponent(embedCode.replace(/\s+/g, ' '))}})();`;
         navigator.clipboard.writeText(bookmarkletCode).then(() => {
@@ -598,6 +607,16 @@
           this.showStatus('Code copied to clipboard!', true);
         });
       }
+    }
+
+    getBookmarkletHref() {
+      if (!this.targetElement || !this.selectedSelector) {
+        return 'javascript:void(0);';
+      }
+
+      const embedCode = this.generateEmbedCode('js');
+      const bookmarkletCode = `javascript:(function(){${encodeURIComponent(embedCode.replace(/\s+/g, ' '))}})();`;
+      return bookmarkletCode;
     }
 
     generateEmbedCode(type) {
