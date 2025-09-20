@@ -141,3 +141,10 @@ vite.config.ts.timestamp-*
 /tmp/
 pnpm-lock.yaml
 .pnpm-store/
+
+# Test artifacts
+test-results/
+test-results-*
+playwright-report/
+playwright/.cache/
+*.screenshot.png

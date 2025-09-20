@@ -191,20 +191,29 @@ await page.evaluate(() => {
 **Root Cause**: MCP server limitation - screenshots exist only in browser context
 **Impact**: Cannot create persistent visual documentation
 
-**Solutions**:
+**Solution Implemented**: Use Playwright for Testing ✅
 ```bash
-# 1. Create detailed test reports instead
-echo "# Test Report" > tmp/test-name-$(date +%Y-%m-%d)/test-report.md
+# Install Playwright
+pnpm add -D @playwright/test
+pnpm exec playwright install
 
-# 2. Update MCP filesystem permissions to include tmp/
-# In .mcp.json:
-"ALLOWED_DIRS": "./src,./examples,./docs,./scripts,./tmp"
+# Run tests with screenshots
+pnpm test                    # Run all tests
+pnpm test:screenshots        # Run external site tests
+pnpm test:ui                 # Interactive UI mode
+pnpm test:report            # View HTML report with screenshots
 
-# 3. Use alternative tools for persistent screenshots
-# - Browser dev tools manual capture
-# - Playwright with file output
-# - External screenshot services
+# Screenshots are saved to:
+test-results/screenshots/    # Individual screenshots
+test-results/artifacts/      # Test artifacts
+test-results/html-report/    # HTML report with embedded images
 ```
+
+**Testing Architecture**:
+- **MCP Tools (Puppeteer/Filesystem)**: For AI-assisted exploration and development
+- **Playwright Tests**: For reproducible integration tests with persistent screenshots
+- Tests organized in `tests/e2e/` with fixtures for bookmarklet loading
+- Screenshots automatically saved with descriptive names and timestamps
 
 ### Issue: Shadow DOM form interaction
 **Solution**: Access through shadowRoot

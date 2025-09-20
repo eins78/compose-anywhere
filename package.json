@@ -4,7 +4,13 @@
   "description": "Visual component placement tool - drop any component on any website",
   "main": "src/bookmarklet.js",
   "scripts": {
-    "test": "./test-workflow.sh",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report",
+    "test:screenshots": "playwright test external-sites --project=chromium",
+    "test:workflow": "./test-workflow.sh",
     "test:quick": "claude 'Test bookmarklet on local test page'",
     "test:live": "claude 'Test bookmarklet on https://news.ycombinator.com'",
     "test:multi": "claude --dangerously-skip-permissions 'Test on 5 different websites'",
@@ -13,7 +19,7 @@
     "bookmarklet": "node scripts/create-bookmarklet.js",
     "serve": "serve . -p 8080",
     "format": "prettier --write '**/*.{js,json,md}'",
-    "clean": "rm -rf screenshots/ docs/generated/ examples/generated/"
+    "clean": "rm -rf test-results/ screenshots/ docs/generated/ examples/generated/"
   },
   "keywords": [
     "component",
@@ -36,6 +42,7 @@
     "url": "https://github.com/eins78/compose-anywhere.git"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "prettier": "^3.2.4",
     "puppeteer": "^24.22.0",
     "serve": "^14.2.1"
