@@ -268,7 +268,7 @@ claude "Test the bookmarklet on news.ycombinator.com and take screenshots"
 
 ## Features Roadmap
 
-### ✅ Completed (v2.0 - Responsive Edition)
+### ✅ Completed (v2.1 - Enhanced Placement)
 - [x] **Basic placement detection** - Smart container scoring
 - [x] **Shadow DOM encapsulation** - Complete style isolation
 - [x] **Embed code generation** - Responsive-aware output
@@ -279,11 +279,16 @@ claude "Test the bookmarklet on news.ycombinator.com and take screenshots"
 - [x] **Container query support** - Modern CSS features
 - [x] **Example responsive component** - White paper download widget
 - [x] **Responsive demo page** - Comprehensive testing environment
+- [x] **Smooth placement tracking** - Debounced mouse movement (120ms)
+- [x] **Visual container analysis** - Interactive info panel with highlighting
+- [x] **Enhanced placement options** - Before/after/inside any element
+- [x] **Flexible scoring system** - Lowered threshold for more options
+- [x] **Full-width components** - Adaptive to any container size
+- [x] **Position indicators** - Visual BEFORE/AFTER/INSIDE feedback
 
 ### 🚧 In Progress
 - [ ] **Multiple component types** - Expanding beyond white paper widget
 - [ ] **Component marketplace** - Library of pre-built responsive components
-- [ ] **Advanced placement options** - Before/after/inside positioning UI
 
 ### 🔮 Future Features
 - [ ] **Persistence (localStorage)** - Remember preferences and placements
