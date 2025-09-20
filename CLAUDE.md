@@ -101,6 +101,19 @@ claude "Use puppeteer to:
   4. Improve algorithm based on failures"
 ```
 
+### Pattern 4: Live Website Testing (VERIFIED ✅)
+```bash
+# Bootstrap Product Example - WORKING
+claude "Test the bookmarklet on https://getbootstrap.com/docs/5.3/examples/product/ and take screenshots"
+
+# Workflow:
+# 1. Navigate to external site
+# 2. Load bookmarklet via page.evaluate()
+# 3. Place widget using smart container detection
+# 4. Test form functionality within Shadow DOM
+# 5. Save screenshots to tmp/[test-name]/ folders
+```
+
 ## Custom Commands (in .mcp.json)
 
 | Command | Purpose | Efficiency |
@@ -173,6 +186,22 @@ await page.evaluate(() => {
 });
 ```
 
+### Issue: Screenshots not saving to filesystem
+**Solution**: Puppeteer MCP saves screenshots to browser context, not filesystem
+```bash
+# Screenshots visible in Claude but need manual export
+# Use tmp/ folders for organized testing
+mkdir -p tmp/test-name-$(date +%Y-%m-%d)
+```
+
+### Issue: Shadow DOM form interaction
+**Solution**: Access through shadowRoot
+```javascript
+const widget = document.querySelector('white-paper-widget');
+const emailInput = widget.shadowRoot.querySelector('.email-input');
+emailInput.value = 'test@example.com';
+```
+
 ## Next Experiments to Try
 
 - [ ] Test with `@modelcontextprotocol/server-everart` for UI mockups
@@ -204,8 +233,17 @@ The goal is to continuously optimize our development velocity. Every minute save
 
 ---
 
-**Last Updated**: 2025-01-20
+**Last Updated**: 2025-09-20
 **Most Efficient Tool**: Puppeteer MCP
-**Time Saved This Week**: ~4 hours
-**Next Review**: Weekly (every Monday)
-- use pnpm
+**Next Review**: Daily (after 8pm)
+
+### Latest Verified Tests ✅
+- **Bootstrap Product Page**: Widget placement and form interaction confirmed working
+- **Shadow DOM Components**: Full custom element functionality verified
+- **Responsive Design**: Container queries and responsive breakpoints working
+- **Live Website Integration**: External site testing pipeline established
+
+### Development Guidelines
+- use pnpm for package management
+- keep the repo clean. while testing and experimenting, output into the git-ignored tmp folder. use subfolders per task. only after a task is done, copy out created files if they are very important.
+- organize test screenshots in tmp/[test-name-date]/ folders
