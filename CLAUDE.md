@@ -291,15 +291,47 @@ The goal is to continuously optimize our development velocity. Every minute save
 
 ---
 
-**Last Updated**: 2025-09-20
+**Last Updated**: 2025-09-21
 **Most Efficient Tool**: Puppeteer MCP
 **Next Review**: Daily (after 8pm)
+**Current Version**: v2.1 (Manual Selector Removed)
+
+### Current Feature Set (v2.1) ✅
+
+**Core Functionality:**
+- **Smart Container Detection**: AI-powered scoring with responsive awareness
+- **Live Component Preview**: Real interactive widgets with form functionality
+- **Shadow DOM Encapsulation**: Zero CSS conflicts with host website
+- **Floating Configuration Menu**: Persistent UI for placement and export controls
+
+**Placement Options:**
+- **Multiple Positions**: Before, After, Inside Start, Inside End
+- **Visual Position Indicators**: Clear before/after/inside feedback
+- **Target Re-selection**: "Choose New Target" button for easy changes
+- **Green Overlay System**: Smooth animations with scroll-aware positioning
+
+**Advanced Selector System:**
+- **Multiple Selector Strategies**: ID, class, data attributes, semantic paths, nth-child
+- **Confidence-Based Ranking**: High/medium/low confidence scoring
+- **Intelligent Selector Chooser**: Dialog for refining selector when multiple options
+- **Unique Element Validation**: Ensures selectors target exactly one element
+
+**Export & Integration:**
+- **JavaScript Snippet**: Direct embed code for websites
+- **HTML Script Tag**: Standard script tag with positioning
+- **Draggable Bookmarklet**: One-click installation for users
+- **Responsive Embed Code**: Components adapt to container size
+
+**Removed Features (As of September 2025):**
+- ~~Manual Selector Input~~: Removed due to complexity and validation issues
+- Feature was reverted in commit 98b32a2 after user feedback
 
 ### Latest Verified Tests ✅
 - **Bootstrap Product Page**: Widget placement and form interaction confirmed working
 - **Shadow DOM Components**: Full custom element functionality verified
 - **Responsive Design**: Container queries and responsive breakpoints working
 - **Live Website Integration**: External site testing pipeline established
+- **Feature Removal**: Manual selector successfully reverted without issues
 
 ### Development Guidelines
 - use pnpm for package management

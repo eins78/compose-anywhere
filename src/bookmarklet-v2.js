@@ -1,12 +1,47 @@
 /**
- * Compose Anywhere - Two-Step Placement with Keyboard Navigation
- * A visual component placement tool with accessibility-first design
+ * Compose Anywhere v2 - Visual Component Placement Tool
+ *
+ * A sophisticated bookmarklet that enables visual placement of responsive web components
+ * on any website through an intuitive floating menu interface.
+ *
+ * Key Features:
+ * - Smart container detection with AI-powered scoring
+ * - Live component preview with real interactivity
+ * - Shadow DOM encapsulation for zero CSS conflicts
+ * - Multiple placement positions (before, after, inside start/end)
+ * - Responsive component support with container queries
+ * - Advanced selector generation with confidence ranking
+ * - Instant embed code generation (JS snippet, HTML script, bookmarklet)
+ *
+ * Architecture:
+ * - Web Components with Shadow DOM for complete style isolation
+ * - Event-driven communication between components
+ * - No external dependencies, pure vanilla JavaScript
+ * - Responsive-first design with modern CSS features
+ *
+ * Usage:
+ * 1. Load as bookmarklet or inject via script tag
+ * 2. Move mouse to highlight containers (green overlay)
+ * 3. Click to select target container
+ * 4. Use floating menu to configure placement and export code
+ *
+ * @version 2.1.0
+ * @author Compose Anywhere Team
+ * @license MIT
  */
 
 (() => {
   'use strict';
 
-  // Configuration
+  // ===================================================================
+  // CONFIGURATION
+  // ===================================================================
+
+  /**
+   * Global configuration object containing all customizable settings
+   * for the Compose Anywhere tool. This centralized approach ensures
+   * consistent theming and behavior across all components.
+   */
   const CONFIG = {
     component: {
       minWidth: 280,
@@ -29,7 +64,19 @@
     }
   };
 
-  // Utility: Get base styles for Shadow DOM
+  // ===================================================================
+  // SHARED UTILITIES
+  // ===================================================================
+
+  /**
+   * Generate base CSS styles for Shadow DOM components
+   *
+   * Creates a consistent foundation of CSS custom properties and reset styles
+   * that all Shadow DOM components inherit. This approach ensures visual
+   * consistency while maintaining complete style encapsulation.
+   *
+   * @returns {string} CSS string with design tokens and base styles
+   */
   const getBaseStyles = () => `
     :host {
       --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -51,19 +98,46 @@
     }
   `;
 
+  // ===================================================================
+  // FLOATING MENU COMPONENT
+  // ===================================================================
+
   /**
-   * Custom element for floating menu
-   * Persistent configuration panel for embed settings
+   * FloatingMenu - Persistent Configuration Panel
+   *
+   * The main UI component that provides placement configuration and code generation.
+   * Displays as a collapsible floating panel in the bottom-right corner with:
+   *
+   * Features:
+   * - Expandable/collapsible interface (click logo to toggle)
+   * - Target container information display
+   * - Position selection (Before, After, Inside Start, Inside End)
+   * - Selector chooser with confidence-based ranking
+   * - Export options (JS snippet, HTML script tag, draggable bookmarklet)
+   * - "Choose New Target" functionality
+   *
+   * State Management:
+   * - Tracks current target element and selector
+   * - Maintains selected position preference
+   * - Stores available selector options with confidence ratings
+   *
+   * @extends HTMLElement
    */
   class FloatingMenu extends HTMLElement {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
-      this.isExpanded = false;
-      this.targetElement = null;
-      this.selectedSelector = null;
-      this.availableSelectors = [];
-      this.selectedPosition = 'after'; // Default position
+
+      // UI State
+      this.isExpanded = false;              // Whether menu is expanded or collapsed
+
+      // Target Element State
+      this.targetElement = null;            // Currently selected DOM element
+      this.selectedSelector = null;         // Active CSS selector for target
+      this.availableSelectors = [];         // Array of selector options with confidence
+
+      // Placement Configuration
+      this.selectedPosition = 'after';      // Default: place component after target
     }
 
     connectedCallback() {
@@ -555,6 +629,16 @@
       }
     }
 
+    /**
+     * Configure the floating menu with a new target element
+     *
+     * Called when user selects a target container. Updates the menu state,
+     * expands the interface, and refreshes the UI with target information.
+     *
+     * @param {HTMLElement} element - Selected target container
+     * @param {string} selector - Primary CSS selector for the element
+     * @param {Array} selectors - Array of selector options with confidence ratings
+     */
     setTarget(element, selector, selectors = []) {
       this.targetElement = element;
       this.selectedSelector = selector;
@@ -564,6 +648,12 @@
       this.setupEventListeners();
     }
 
+    /**
+     * Request new target selection from the user
+     *
+     * Triggered when user clicks "Choose New Target" button.
+     * Collapses the menu and initiates target selection mode.
+     */
     requestNewTarget() {
       // Dispatch event to request new target selection
       this.dispatchEvent(new CustomEvent('request-new-target'));
@@ -572,6 +662,14 @@
       this.collapse();
     }
 
+    /**
+     * Update component placement position
+     *
+     * Called when user selects a different position option.
+     * Updates internal state and triggers re-rendering of the preview.
+     *
+     * @param {string} position - New position ('before', 'after', 'inside-start', 'inside-end')
+     */
     updatePosition(position) {
       this.selectedPosition = position;
 
@@ -2689,29 +2787,60 @@ if (target) {
     customElements.define('embed-code-modal', EmbedCodeModal);
   }
 
+  // ===================================================================
+  // MAIN CONTROLLER
+  // ===================================================================
+
   /**
-   * Main controller for two-step placement process
+   * TwoStepPlacementController - Core Orchestration Class
+   *
+   * The main controller that orchestrates the entire component placement workflow.
+   * Manages state transitions, user interactions, and coordinates between all UI components.
+   *
+   * Workflow States:
+   * 1. 'inactive' - Tool not active, ready to start
+   * 2. 'selecting-target' - User hovering/selecting target container
+   * 3. 'choosing-selector' - User refining selector choice (if multiple options)
+   * 4. 'complete' - Target selected, floating menu active for configuration
+   *
+   * Key Responsibilities:
+   * - Mouse movement tracking with debounced container detection
+   * - Click handling for target selection
+   * - Keyboard navigation support (Space/Enter for selection)
+   * - State management across all components
+   * - Event coordination between floating menu, selector chooser, etc.
+   * - Live preview management with widget placement/removal
+   *
+   * Components Managed:
+   * - TargetSelector: Overlay for highlighting containers
+   * - FloatingMenu: Configuration panel for embed settings
+   * - SelectorChooser: Dialog for selecting CSS selector when multiple options
+   * - FocusManager: Accessibility and keyboard navigation
+   * - SelectorGenerator: Advanced CSS selector generation with confidence scoring
    */
   class TwoStepPlacementController {
     constructor() {
-      this.state = 'inactive'; // inactive, selecting-target, choosing-selector, complete
-      this.targetElement = null;
-      this.selectedSelector = null;
-      this.availableSelectors = [];
-      this.selectedPosition = 'after'; // Default position
+      // ===== STATE MANAGEMENT =====
+      this.state = 'inactive';              // Current workflow state
+      this.targetElement = null;            // Selected target container
+      this.selectedSelector = null;         // Active CSS selector
+      this.availableSelectors = [];         // All selector options with confidence
+      this.selectedPosition = 'after';      // Component placement position
 
-      this.focusManager = new FocusManager();
-      this.selectorGenerator = new SelectorGenerator();
+      // ===== CORE SERVICES =====
+      this.focusManager = new FocusManager();        // Keyboard navigation & accessibility
+      this.selectorGenerator = new SelectorGenerator(); // Advanced CSS selector generation
 
-      // UI elements
-      this.targetSelector = null;
-      this.floatingMenu = null;
-      this.selectorChooser = null;
+      // ===== UI COMPONENTS =====
+      this.targetSelector = null;           // Green overlay for highlighting containers
+      this.floatingMenu = null;             // Main configuration panel
+      this.selectorChooser = null;          // Selector choice dialog
 
-      // Hover state management
-      this.currentHoverTarget = null;
+      // ===== INTERACTION STATE =====
+      this.currentHoverTarget = null;       // Currently highlighted element
 
-      // Event handlers bound
+      // ===== BOUND EVENT HANDLERS =====
+      // Pre-bind all event handlers for consistent `this` context
       this.handleMouseMove = this.handleMouseMove.bind(this);
       this.handleClick = this.handleClick.bind(this);
       this.handleKeyDown = this.handleKeyDown.bind(this);
@@ -3311,9 +3440,37 @@ if (target) {
 
     /**
      * Ensure WhitePaperWidget custom element is defined
+     *
+     * Creates and registers the WhitePaperWidget custom element if not already defined.
+     * This is the actual responsive component that gets placed on the page.
+     *
+     * Features:
+     * - Shadow DOM encapsulation for complete style isolation
+     * - Responsive design using CSS container queries
+     * - Professional form layout with modern styling
+     * - Multiple responsive breakpoints (280px, 400px, 600px, 800px)
+     * - Self-contained with no external dependencies
+     *
+     * The widget serves as both:
+     * 1. Live preview during placement (with interaction blocking)
+     * 2. Final component when embed code is deployed
      */
     ensureWhitePaperWidget() {
       if (!customElements.get('white-paper-widget')) {
+        /**
+         * WhitePaperWidget - Responsive Example Component
+         *
+         * Demonstrates a real-world responsive component with professional styling
+         * and form functionality. Adapts to container width using CSS container queries.
+         *
+         * Responsive Breakpoints:
+         * - 280px: Mobile-first stack layout, minimal spacing
+         * - 400px: Side-by-side layout, illustration appears
+         * - 600px: Enhanced spacing and typography
+         * - 800px+: Centered layout with optimal readability
+         *
+         * @extends HTMLElement
+         */
         class WhitePaperWidget extends HTMLElement {
           constructor() {
             super();
@@ -3543,10 +3700,20 @@ if (target) {
     }
   }
 
-  // Initialize controller
+  // ===================================================================
+  // INITIALIZATION
+  // ===================================================================
+
+  /**
+   * Initialize and start the Compose Anywhere tool
+   *
+   * Creates the main controller and starts the placement workflow.
+   * The tool becomes active immediately, ready for user interaction.
+   */
   const controller = new TwoStepPlacementController();
   controller.init();
 
-  // Store for debugging
+  // Expose controller for debugging and external access
+  // Available in console as: window.__composeAnywhereV2
   window.__composeAnywhereV2 = controller;
 })();

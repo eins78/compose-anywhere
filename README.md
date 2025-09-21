@@ -268,25 +268,24 @@ claude "Test the bookmarklet on news.ycombinator.com and take screenshots"
 
 ## Features Roadmap
 
-### ✅ Completed (v2.1 - Enhanced Placement)
-- [x] **Basic placement detection** - Smart container scoring
-- [x] **Shadow DOM encapsulation** - Complete style isolation
-- [x] **Embed code generation** - Responsive-aware output
-- [x] **Live component preview** - Real interactive widgets
-- [x] **Responsive component detection** - Container query aware
-- [x] **Advanced selector algorithm** - Responsive-aware scoring
-- [x] **Visual feedback improvements** - Advanced overlay system
-- [x] **Container query support** - Modern CSS features
-- [x] **Example responsive component** - White paper download widget
-- [x] **Responsive demo page** - Comprehensive testing environment
-- [x] **Smooth placement tracking** - Debounced mouse movement (120ms)
-- [x] **Visual container analysis** - Interactive info panel with highlighting
-- [x] **Enhanced placement options** - Before/after/inside any element
-- [x] **Flexible scoring system** - Lowered threshold for more options
-- [x] **Full-width components** - Adaptive to any container size
-- [x] **Position indicators** - Visual BEFORE/AFTER/INSIDE feedback
+### ✅ Completed (v2.1 - Current Feature Set)
+- [x] **Smart container detection** - AI-powered container scoring with responsive awareness
+- [x] **Shadow DOM encapsulation** - Complete style isolation for zero conflicts
+- [x] **Live component preview** - Real interactive widgets, not placeholders
+- [x] **Responsive components** - Components adapt to container size using modern CSS container queries
+- [x] **Floating configuration menu** - Persistent UI for placement and export controls
+- [x] **Multiple placement positions** - Before, After, Inside Start, Inside End options
+- [x] **Advanced selector generation** - Multiple selector strategies (ID, class, data attributes, semantic paths)
+- [x] **Intelligent selector chooser** - Confidence-based ranking with fallback options
+- [x] **Visual feedback system** - Green overlay with smooth animations and positioning indicators
+- [x] **Instant embed code generation** - JavaScript snippet, HTML script tag, and draggable bookmarklet
+- [x] **Target re-selection** - "Choose New Target" button for easy placement changes
+- [x] **Responsive container awareness** - Scoring considers layout context and responsive design patterns
+- [x] **Example component** - White paper download widget with full responsive behavior
+- [x] **Development tooling** - Automated testing workflow with Puppeteer integration
 
-### 🚧 In Progress
+### 🚧 Current Focus
+- [ ] **Enhanced documentation** - Comprehensive code comments and technical documentation
 - [ ] **Multiple component types** - Expanding beyond white paper widget
 - [ ] **Component marketplace** - Library of pre-built responsive components
 
