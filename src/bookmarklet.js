@@ -1,2058 +1,3719 @@
 /**
- * @fileoverview Compose Anywhere - Visual component placement tool
- * @description Drop any component on any website with smart container detection
- * @author Max Albrecht (eins78)
- * @version 1.0.0
+ * Compose Anywhere v2 - Visual Component Placement Tool
+ *
+ * A sophisticated bookmarklet that enables visual placement of responsive web components
+ * on any website through an intuitive floating menu interface.
+ *
+ * Key Features:
+ * - Smart container detection with AI-powered scoring
+ * - Live component preview with real interactivity
+ * - Shadow DOM encapsulation for zero CSS conflicts
+ * - Multiple placement positions (before, after, inside start/end)
+ * - Responsive component support with container queries
+ * - Advanced selector generation with confidence ranking
+ * - Instant embed code generation (JS snippet, HTML script, bookmarklet)
+ *
+ * Architecture:
+ * - Web Components with Shadow DOM for complete style isolation
+ * - Event-driven communication between components
+ * - No external dependencies, pure vanilla JavaScript
+ * - Responsive-first design with modern CSS features
+ *
+ * Usage:
+ * 1. Load as bookmarklet or inject via script tag
+ * 2. Move mouse to highlight containers (green overlay)
+ * 3. Click to select target container
+ * 4. Use floating menu to configure placement and export code
+ *
+ * @version 2.1.0
+ * @author Compose Anywhere Team
+ * @license MIT
  */
 
 (() => {
   'use strict';
 
+  // ===================================================================
+  // CONFIGURATION
+  // ===================================================================
+
   /**
-   * Design system tokens - CSS variables for consistent theming
+   * Global configuration object containing all customizable settings
+   * for the Compose Anywhere tool. This centralized approach ensures
+   * consistent theming and behavior across all components.
    */
-  const DESIGN_TOKENS = {
-    // Colors
-    '--color-primary': '#3b82f6',
-    '--color-primary-hover': '#2563eb',
-    '--color-secondary': '#64748b',
-    '--color-secondary-hover': '#475569',
-    '--color-success': '#10b981',
-    '--color-danger': '#ef4444',
-    '--color-background': '#ffffff',
-    '--color-surface': '#f8fafc',
-    '--color-border': '#e2e8f0',
-    '--color-text': '#1e293b',
-    '--color-text-muted': '#64748b',
-    
-    // Spacing
-    '--spacing-xs': '0.25rem',
-    '--spacing-sm': '0.5rem',
-    '--spacing-md': '1rem',
-    '--spacing-lg': '1.5rem',
-    '--spacing-xl': '2rem',
-    
-    // Border radius
-    '--radius-sm': '0.25rem',
-    '--radius-md': '0.375rem',
-    '--radius-lg': '0.5rem',
-    
-    // Shadows
-    '--shadow-sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-    '--shadow-md': '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-    '--shadow-lg': '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-    '--shadow-xl': '0 20px 25px -5px rgb(0 0 0 / 0.1)',
-    
-    // Typography
-    '--font-family': 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
-    '--font-size-sm': '0.875rem',
-    '--font-size-base': '1rem',
-    '--font-size-lg': '1.125rem',
-    '--font-size-xl': '1.25rem',
-    '--font-weight-normal': '400',
-    '--font-weight-medium': '500',
-    '--font-weight-semibold': '600',
-    
-    // Transitions
-    '--transition-fast': '150ms ease',
-    '--transition-base': '200ms ease',
-    '--transition-slow': '300ms ease'
+  const CONFIG = {
+    component: {
+      minWidth: 280,
+      maxWidth: 600,
+      responsive: true
+    },
+    colors: {
+      primary: '#3b82f6',
+      primaryHover: '#2563eb',
+      success: '#10b981',
+      successHover: '#059669',
+      overlay: 'rgba(16, 185, 129, 0.3)',  // Green with more opacity
+      overlayBorder: '#10b981',  // Green border
+      focus: '#10b981'  // Green focus
+    },
+    animations: {
+      fast: '150ms',
+      normal: '300ms',
+      smooth: 'cubic-bezier(0.4, 0, 0.2, 1)'
+    }
   };
 
-  /**
-   * @typedef {Object} ComponentConfig
-   * @property {string} type - Component type identifier
-   * @property {boolean} responsive - Whether component is responsive
-   * @property {number} minWidth - Minimum width in pixels
-   * @property {number} maxWidth - Maximum width in pixels
-   * @property {string} aspectRatio - Aspect ratio or 'auto'
-   * @property {string} src - Component source URL or inline HTML
-   * @property {boolean} containerQuery - Whether component uses container queries
-   * @property {number} [width] - Legacy fixed width (deprecated)
-   * @property {number} [height] - Legacy fixed height (deprecated)
-   */
+  // ===================================================================
+  // SHARED UTILITIES
+  // ===================================================================
 
   /**
-   * @typedef {Object} PlacementInfo
-   * @property {HTMLElement} element - Target DOM element
-   * @property {string} selector - CSS selector for the element
-   * @property {'before'|'after'|'inside'} position - Insertion position
+   * Generate base CSS styles for Shadow DOM components
+   *
+   * Creates a consistent foundation of CSS custom properties and reset styles
+   * that all Shadow DOM components inherit. This approach ensures visual
+   * consistency while maintaining complete style encapsulation.
+   *
+   * @returns {string} CSS string with design tokens and base styles
    */
+  const getBaseStyles = () => `
+    :host {
+      --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --color-primary: ${CONFIG.colors.primary};
+      --color-primary-hover: ${CONFIG.colors.primaryHover};
+      --color-success: ${CONFIG.colors.success};
+      --color-success-hover: ${CONFIG.colors.successHover};
+      --color-overlay: ${CONFIG.colors.overlay};
+      --color-overlay-border: ${CONFIG.colors.overlayBorder};
+      --color-focus: ${CONFIG.colors.focus};
+      --animation-fast: ${CONFIG.animations.fast};
+      --animation-normal: ${CONFIG.animations.normal};
+      --animation-smooth: ${CONFIG.animations.smooth};
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none; /* Disable text selection by default in our UI */
+    }
+  `;
+
+  // ===================================================================
+  // FLOATING MENU COMPONENT
+  // ===================================================================
 
   /**
-   * Component configuration
-   * @type {ComponentConfig}
+   * FloatingMenu - Persistent Configuration Panel
+   *
+   * The main UI component that provides placement configuration and code generation.
+   * Displays as a collapsible floating panel in the bottom-right corner with:
+   *
+   * Features:
+   * - Expandable/collapsible interface (click logo to toggle)
+   * - Target container information display
+   * - Position selection (Before, After, Inside Start, Inside End)
+   * - Selector chooser with confidence-based ranking
+   * - Export options (JS snippet, HTML script tag, draggable bookmarklet)
+   * - "Choose New Target" functionality
+   *
+   * State Management:
+   * - Tracks current target element and selector
+   * - Maintains selected position preference
+   * - Stores available selector options with confidence ratings
+   *
+   * @extends HTMLElement
    */
-  const COMPONENT_CONFIG = {
-    type: 'white-paper',
-    responsive: true,
-    minWidth: 280,
-    maxWidth: 800,
-    aspectRatio: 'auto',
-    containerQuery: true,
-    src: 'component', // Will render inline component
-    // Legacy support for fixed-size components
-    width: 480,
-    height: 270
-  };
+  class FloatingMenu extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
 
-  /**
-   * Common container patterns for smart placement detection
-   */
-  const CONTAINER_PATTERNS = {
-    classes: ['container', 'content', 'main', 'article', 'section',
-              'wrapper', 'hero', 'cta', 'sidebar', 'footer', 'header',
-              'card', 'panel', 'column', 'row', 'box', 'module', 'responsive',
-              'breakpoint', 'demo', 'test', 'width'],
-    tags: ['article', 'section', 'main', 'aside', 'header', 
-           'footer', 'nav', 'div[class*="container"]', 'div[class*="content"]']
-  };
+      // UI State
+      this.isExpanded = false;              // Whether menu is expanded or collapsed
 
-  /**
-   * Base styles shared across components
-   */
-  const getBaseStyles = () => {
-    return Object.entries(DESIGN_TOKENS)
-      .map(([key, value]) => `${key}: ${value};`)
-      .join('\n');
-  };
+      // Target Element State
+      this.targetElement = null;            // Currently selected DOM element
+      this.selectedSelector = null;         // Active CSS selector for target
+      this.availableSelectors = [];         // Array of selector options with confidence
 
-  /**
-   * White Paper Download Widget - Responsive Web Component
-   * Features container queries for true responsiveness
-   */
+      // Placement Configuration
+      this.selectedPosition = 'after';      // Default: place component after target
+    }
+
+    connectedCallback() {
+      this.render();
+      this.setupEventListeners();
+    }
+
+    render() {
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${getBaseStyles()}
+
+          :host {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10003;
+            font-family: var(--font-family);
+          }
+
+          .menu-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+            transition: all var(--animation-normal) var(--animation-smooth);
+            overflow: hidden;
+          }
+
+          .menu-container.collapsed {
+            width: 56px;
+            height: 56px;
+          }
+
+          .menu-container.expanded {
+            width: 320px;
+            max-height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+          }
+
+          .toggle-button {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-primary);
+            border: none;
+            cursor: pointer;
+            transition: background var(--animation-fast);
+          }
+
+          .expanded .toggle-button {
+            display: none;
+          }
+
+          .toggle-button:hover {
+            background: var(--color-primary-hover);
+          }
+
+          .toggle-button svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+          }
+
+          .menu-content {
+            padding: 1rem;
+            display: none;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+          }
+
+          .expanded .menu-content {
+            display: block;
+          }
+
+          .menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
+          .menu-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+          }
+
+          .shrink-button {
+            background: #f3f4f6;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 12px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: background var(--animation-fast);
+          }
+
+          .shrink-button:hover {
+            background: #e5e7eb;
+          }
+
+          .section {
+            margin-bottom: 1.25rem;
+          }
+
+          .section:last-child {
+            margin-bottom: 0;
+          }
+
+          /* Custom scrollbar for menu content */
+          .menu-content::-webkit-scrollbar {
+            width: 6px;
+          }
+
+          .menu-content::-webkit-scrollbar-track {
+            background: #f3f4f6;
+            border-radius: 3px;
+          }
+
+          .menu-content::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+          }
+
+          .menu-content::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+          }
+
+          .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+          }
+
+          .container-info {
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #374151;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.5rem;
+          }
+
+          .new-target-button {
+            width: 100%;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.5rem;
+            font-size: 12px;
+            color: #374151;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+          }
+
+          .new-target-button:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+          }
+
+          .new-target-button svg {
+            width: 16px;
+            height: 16px;
+            fill: #6b7280;
+          }
+
+          .position-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.375rem;
+          }
+
+          .position-button {
+            background: #f3f4f6;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            padding: 0.5rem 0.25rem;
+            font-size: 10px;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            min-width: 0;
+          }
+
+          .position-button:hover {
+            background: #e5e7eb;
+          }
+
+          .position-button.active {
+            background: var(--color-success);
+            color: white;
+            border-color: var(--color-success);
+          }
+
+          .position-button svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+          }
+
+          .position-button span {
+            line-height: 1;
+            white-space: nowrap;
+          }
+
+          .export-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .export-button {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.625rem;
+            font-size: 12px;
+            color: #374151;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+          }
+
+          .export-button:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+          }
+
+          .export-button svg {
+            width: 14px;
+            height: 14px;
+            fill: #6b7280;
+          }
+
+          .status-message {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            margin-bottom: 8px;
+            background: #10b981;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: all var(--animation-fast);
+            pointer-events: none;
+          }
+
+          .status-message.show {
+            opacity: 1;
+            transform: translateY(0);
+          }
+
+          .selector-button {
+            width: 100%;
+            padding: 0.5rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 0.75rem;
+            font-family: monospace;
+            word-break: break-all;
+            max-height: 60px;
+            overflow-y: auto;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            text-align: left;
+          }
+
+          .selector-button:hover {
+            background: #e5e7eb;
+            border-color: #d1d5db;
+          }
+
+          .selector-button:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+          }
+
+          .no-target {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 13px;
+            padding: 2rem 1rem;
+          }
+        </style>
+        <div class="menu-container ${this.isExpanded ? 'expanded' : 'collapsed'}">
+          <button class="toggle-button" aria-label="${this.isExpanded ? 'Collapse' : 'Expand'} menu">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+            </svg>
+          </button>
+          <div class="menu-content">
+            <div class="menu-header">
+              <span class="menu-title">Embed Configuration</span>
+              <button class="shrink-button">Minimize</button>
+            </div>
+            ${this.renderContent()}
+          </div>
+          <div class="status-message" id="statusMessage"></div>
+        </div>
+      `;
+    }
+
+    renderContent() {
+      if (!this.targetElement) {
+        return '<div class="no-target">Select an element to begin</div>';
+      }
+
+      return `
+        <div class="section">
+          <div class="section-label">Target Container</div>
+          <div class="container-info" title="${this.getContainerDescription()}">
+            ${this.getContainerDescription()}
+          </div>
+          ${this.selectedSelector ? `
+            <button class="selector-button"
+                    role="button"
+                    aria-label="Change selector: ${this.selectedSelector.selector}"
+                    title="Click to change selector">
+              ${this.selectedSelector.type}: ${this.selectedSelector.selector}
+            </button>
+          ` : ''}
+          <button class="new-target-button">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+            Choose New Target
+          </button>
+        </div>
+
+        <div class="section">
+          <div class="section-label">Widget Position</div>
+          <div class="position-buttons">
+            <button class="position-button ${this.selectedPosition === 'before' ? 'active' : ''}" data-position="before">
+              <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg>
+              <span>Before</span>
+            </button>
+            <button class="position-button ${this.selectedPosition === 'after' ? 'active' : ''}" data-position="after">
+              <svg viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+              <span>After</span>
+            </button>
+            <button class="position-button ${this.selectedPosition === 'inside-start' ? 'active' : ''}" data-position="inside-start">
+              <svg viewBox="0 0 24 24"><path d="M8 7v10l8-5z"/></svg>
+              <span>Start</span>
+            </button>
+            <button class="position-button ${this.selectedPosition === 'inside-end' ? 'active' : ''}" data-position="inside-end">
+              <svg viewBox="0 0 24 24"><path d="M16 7v10l-8-5z"/></svg>
+              <span>End</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-label">Export Options</div>
+          <div class="export-buttons">
+            <button class="export-button" data-export="js">
+              <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+              Copy as JavaScript
+            </button>
+            <button class="export-button" data-export="script">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              Copy as &lt;script&gt; tag
+            </button>
+            <a class="export-button bookmarklet-link"
+               data-export="bookmarklet"
+               href="${this.getBookmarkletHref()}"
+               role="button"
+               aria-label="Copy bookmarklet or drag to bookmarks bar"
+               title="Click to copy or drag to bookmarks bar">
+              <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+              Copy as Bookmarklet
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    getContainerDescription() {
+      if (!this.targetElement) return 'No target selected';
+
+      const tag = this.targetElement.tagName.toLowerCase();
+      const classes = this.targetElement.className ?
+        `.${this.targetElement.className.split(' ').filter(c => c && !c.startsWith('compose-')).join('.')}` : '';
+      const id = this.targetElement.id ? `#${this.targetElement.id}` : '';
+
+      return `${tag}${id}${classes}`.substring(0, 30);
+    }
+
+    setupEventListeners() {
+      // Toggle button
+      const toggleButton = this.shadowRoot.querySelector('.toggle-button');
+      if (toggleButton) {
+        toggleButton.addEventListener('click', () => {
+          this.toggle();
+        });
+      }
+
+      // Shrink button
+      this.shadowRoot.addEventListener('click', (e) => {
+        if (e.target.classList.contains('shrink-button')) {
+          this.collapse();
+        }
+      });
+
+      // New target button
+      this.shadowRoot.addEventListener('click', (e) => {
+        if (e.target.closest('.new-target-button')) {
+          this.requestNewTarget();
+        }
+      });
+
+      // Position buttons
+      this.shadowRoot.addEventListener('click', (e) => {
+        const button = e.target.closest('.position-button');
+        if (button) {
+          const position = button.dataset.position;
+          this.updatePosition(position);
+        }
+      });
+
+      // Export buttons
+      this.shadowRoot.addEventListener('click', (e) => {
+        const button = e.target.closest('.export-button');
+        if (button) {
+          const type = button.dataset.export;
+          this.handleExport(type, e);
+        }
+      });
+
+      // Selector button - reopens selector chooser
+      this.shadowRoot.addEventListener('click', (e) => {
+        if (e.target.classList.contains('selector-button')) {
+          this.dispatchEvent(new CustomEvent('reopen-selector-chooser'));
+        }
+      });
+    }
+
+    toggle() {
+      this.isExpanded = !this.isExpanded;
+      this.render();
+      this.setupEventListeners();
+    }
+
+    expand() {
+      if (!this.isExpanded) {
+        this.isExpanded = true;
+        this.render();
+        this.setupEventListeners();
+      }
+    }
+
+    collapse() {
+      if (this.isExpanded) {
+        this.isExpanded = false;
+        this.render();
+        this.setupEventListeners();
+      }
+    }
+
+    /**
+     * Configure the floating menu with a new target element
+     *
+     * Called when user selects a target container. Updates the menu state,
+     * expands the interface, and refreshes the UI with target information.
+     *
+     * @param {HTMLElement} element - Selected target container
+     * @param {string} selector - Primary CSS selector for the element
+     * @param {Array} selectors - Array of selector options with confidence ratings
+     */
+    setTarget(element, selector, selectors = []) {
+      this.targetElement = element;
+      this.selectedSelector = selector;
+      this.availableSelectors = selectors.length > 0 ? selectors : [selector];
+      this.expand();
+      this.render();
+      this.setupEventListeners();
+    }
+
+    /**
+     * Request new target selection from the user
+     *
+     * Triggered when user clicks "Choose New Target" button.
+     * Collapses the menu and initiates target selection mode.
+     */
+    requestNewTarget() {
+      // Dispatch event to request new target selection
+      this.dispatchEvent(new CustomEvent('request-new-target'));
+
+      // Collapse the menu during selection
+      this.collapse();
+    }
+
+    /**
+     * Update component placement position
+     *
+     * Called when user selects a different position option.
+     * Updates internal state and triggers re-rendering of the preview.
+     *
+     * @param {string} position - New position ('before', 'after', 'inside-start', 'inside-end')
+     */
+    updatePosition(position) {
+      this.selectedPosition = position;
+
+      // Dispatch event for position change
+      this.dispatchEvent(new CustomEvent('position-changed', {
+        detail: { position, element: this.targetElement }
+      }));
+
+      this.render();
+      this.setupEventListeners();
+    }
+
+    handleExport(type, event) {
+      if (!this.targetElement || !this.selectedSelector) {
+        this.showStatus('Please select a target first', false);
+        return;
+      }
+
+      const embedCode = this.generateEmbedCode(type);
+
+      if (type === 'bookmarklet') {
+        // Prevent default link behavior when copying
+        if (event) {
+          event.preventDefault();
+        }
+        // Create bookmarklet link
+        const bookmarkletCode = `javascript:(function(){${encodeURIComponent(embedCode.replace(/\s+/g, ' '))}})();`;
+        navigator.clipboard.writeText(bookmarkletCode).then(() => {
+          this.showStatus('Bookmarklet copied!', true);
+        });
+      } else {
+        navigator.clipboard.writeText(embedCode).then(() => {
+          this.showStatus('Code copied to clipboard!', true);
+        });
+      }
+    }
+
+    getBookmarkletHref() {
+      if (!this.targetElement || !this.selectedSelector) {
+        return 'javascript:void(0);';
+      }
+
+      const embedCode = this.generateEmbedCode('js');
+      const bookmarkletCode = `javascript:(function(){${encodeURIComponent(embedCode.replace(/\s+/g, ' '))}})();`;
+      return bookmarkletCode;
+    }
+
+    generateEmbedCode(type) {
+      const positionMethod = {
+        'before': 'beforebegin',
+        'after': 'afterend',
+        'inside-start': 'afterbegin',
+        'inside-end': 'beforeend'
+      }[this.selectedPosition] || 'afterend';
+
+      const jsCode = `// White Paper Widget - Self-contained component
+if (!customElements.get('white-paper-widget')) {
   class WhitePaperWidget extends HTMLElement {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
       this.render();
     }
-
-    getTemplate() {
-      return `
-        <div class="widget">
-          <header class="header">
-            <div class="icon">📄</div>
-            <div class="header-content">
-              <h2 class="title">Download Our White Paper</h2>
-              <p class="subtitle">Modern Web Development Insights</p>
-            </div>
-          </header>
-
-          <div class="content">
-            <div class="form-section">
-              <p class="description">
-                Get expert insights on building responsive, accessible web applications
-                with the latest technologies and best practices.
-              </p>
-
-              <form class="form" action="#" method="post">
-                <div class="input-group">
-                  <label for="email" class="sr-only">Email address</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    placeholder="Enter your email"
-                    required
-                    class="email-input"
-                  >
-                  <button type="submit" class="download-btn">
-                    <span class="btn-icon">⬇</span>
-                    <span class="btn-text">Download PDF</span>
-                  </button>
-                </div>
-
-                <p class="privacy-note">
-                  We respect your privacy. Unsubscribe at any time.
-                </p>
-              </form>
-            </div>
-
-            <aside class="illustration" aria-hidden="true">
-              <svg viewBox="0 0 200 160" class="illustration-svg">
-                <rect x="20" y="40" width="120" height="100" rx="8" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
-                <rect x="30" y="30" width="120" height="100" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
-                <rect x="40" y="20" width="120" height="100" rx="8" fill="#3b82f6" opacity="0.1" stroke="#3b82f6" stroke-width="2"/>
-                <line x1="50" y1="40" x2="130" y2="40" stroke="#cbd5e1" stroke-width="2"/>
-                <line x1="50" y1="50" x2="140" y2="50" stroke="#cbd5e1" stroke-width="2"/>
-                <line x1="50" y1="60" x2="120" y2="60" stroke="#cbd5e1" stroke-width="2"/>
-                <circle cx="170" cy="70" r="15" fill="#10b981"/>
-                <path d="M165 65 L170 75 L175 65" stroke="white" stroke-width="2" fill="none"/>
-                <line x1="170" y1="60" x2="170" y2="70" stroke="white" stroke-width="2"/>
-              </svg>
-            </aside>
-          </div>
-
-          <footer class="footer">
-            <div class="company-info">
-              <span class="company-name">YourCompany</span>
-              <span class="separator">•</span>
-              <span class="pages">12 pages</span>
-              <span class="separator">•</span>
-              <span class="format">PDF</span>
-            </div>
-          </footer>
-        </div>
-      `;
-    }
-
-    getStyles() {
-      return `
-        :host {
-          --color-primary: #3b82f6;
-          --color-primary-hover: #2563eb;
-          --color-success: #10b981;
-          --color-success-hover: #059669;
-          --color-text: #1e293b;
-          --color-text-muted: #64748b;
-          --color-background: #ffffff;
-          --color-surface: #f8fafc;
-          --color-border: #e2e8f0;
-
-          --spacing-xs: 0.5rem;
-          --spacing-sm: 0.75rem;
-          --spacing-md: 1rem;
-          --spacing-lg: 1.5rem;
-          --spacing-xl: 2rem;
-
-          --radius-sm: 0.375rem;
-          --radius-md: 0.5rem;
-          --radius-lg: 0.75rem;
-
-          --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-          --title-size: clamp(1.25rem, 5cqi, 1.875rem);
-          --subtitle-size: clamp(0.875rem, 3cqi, 1rem);
-          --body-size: clamp(0.875rem, 2.5cqi, 1rem);
-
-          display: block;
-          font-family: var(--font-family);
-          line-height: 1.6;
-        }
-
-        .widget {
-          container-type: inline-size;
-          width: 100%;
-          background: var(--color-background);
-          border-radius: var(--radius-lg);
-          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-          overflow: hidden;
-        }
-
-        .header {
-          background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-          color: white;
-          padding: var(--spacing-lg);
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-md);
-        }
-
-        .icon {
-          font-size: 2rem;
-          line-height: 1;
-          opacity: 0.9;
-        }
-
-        .header-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .title {
-          margin: 0;
-          font-size: var(--title-size);
-          font-weight: 600;
-          line-height: 1.2;
-        }
-
-        .subtitle {
-          margin: 0.25rem 0 0 0;
-          font-size: var(--subtitle-size);
-          opacity: 0.9;
-          font-weight: 400;
-        }
-
-        .content {
-          padding: var(--spacing-lg);
-          display: flex;
-          flex-direction: column;
-          gap: var(--spacing-lg);
-        }
-
-        .form-section {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .description {
-          margin: 0 0 var(--spacing-lg) 0;
-          font-size: var(--body-size);
-          color: var(--color-text-muted);
-          line-height: 1.6;
-        }
-
-        .form {
-          width: 100%;
-        }
-
-        .input-group {
-          display: flex;
-          flex-direction: column;
-          gap: var(--spacing-sm);
-          margin-bottom: var(--spacing-md);
-        }
-
-        .email-input {
-          padding: var(--spacing-sm) var(--spacing-md);
-          border: 2px solid var(--color-border);
-          border-radius: var(--radius-md);
-          font-size: var(--body-size);
-          font-family: inherit;
-          background: var(--color-background);
-          transition: border-color 0.2s ease;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .email-input:focus {
-          outline: none;
-          border-color: var(--color-primary);
-          box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
-        }
-
-        .download-btn {
-          background: var(--color-success);
-          color: white;
-          border: none;
-          padding: var(--spacing-sm) var(--spacing-lg);
-          border-radius: var(--radius-md);
-          font-size: var(--body-size);
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.2s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: var(--spacing-xs);
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .download-btn:hover {
-          background: var(--color-success-hover);
-        }
-
-        .btn-icon {
-          font-size: 1.1em;
-        }
-
-        .privacy-note {
-          margin: 0;
-          font-size: 0.75rem;
-          color: var(--color-text-muted);
-          text-align: center;
-        }
-
-        .illustration {
-          display: none;
-          flex-shrink: 0;
-          align-self: center;
-        }
-
-        .illustration-svg {
-          width: 100%;
-          height: auto;
-          max-width: 200px;
-          max-height: 160px;
-        }
-
-        .footer {
-          background: var(--color-surface);
-          padding: var(--spacing-md) var(--spacing-lg);
-          border-top: 1px solid var(--color-border);
-        }
-
-        .company-info {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: var(--spacing-xs);
-          font-size: 0.75rem;
-          color: var(--color-text-muted);
-          flex-wrap: wrap;
-        }
-
-        .company-name {
-          font-weight: 500;
-          color: var(--color-text);
-        }
-
-        .separator {
-          opacity: 0.5;
-        }
-
-        .sr-only {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          padding: 0;
-          margin: -1px;
-          overflow: hidden;
-          clip: rect(0, 0, 0, 0);
-          white-space: nowrap;
-          border: 0;
-        }
-
-        @container (min-width: 400px) {
-          .content {
-            flex-direction: row;
-            align-items: flex-start;
-          }
-
-          .form-section {
-            flex: 1;
-          }
-
-          .illustration {
-            display: block;
-            width: 140px;
-          }
-
-          .input-group {
-            flex-direction: row;
-            align-items: stretch;
-          }
-
-          .email-input {
-            flex: 1;
-          }
-
-          .download-btn {
-            width: auto;
-            white-space: nowrap;
-            flex-shrink: 0;
-          }
-        }
-
-        @container (min-width: 600px) {
-          .header {
-            padding: var(--spacing-xl);
-          }
-
-          .content {
-            padding: var(--spacing-xl);
-            gap: var(--spacing-xl);
-          }
-
-          .illustration {
-            width: 200px;
-          }
-
-          .description {
-            margin-bottom: var(--spacing-xl);
-          }
-
-          .company-info {
-            justify-content: flex-start;
-          }
-        }
-
-        @container (min-width: 800px) {
-          .content {
-            max-width: 800px;
-            margin: 0 auto;
-          }
-
-          .header {
-            max-width: 800px;
-            margin: 0 auto;
-          }
-
-          .footer {
-            max-width: 800px;
-            margin: 0 auto;
-          }
-        }
-      `;
-    }
-
     render() {
-      this.shadowRoot.innerHTML = `
-        <style>${this.getStyles()}</style>
-        ${this.getTemplate()}
-      `;
-
-      const form = this.shadowRoot.querySelector('.form');
-      if (form) {
-        form.addEventListener('submit', (e) => {
-          e.preventDefault();
-          const email = this.shadowRoot.querySelector('.email-input').value.trim();
-          if (email) {
-            this.dispatchEvent(new CustomEvent('download-request', {
-              detail: { email },
-              bubbles: true
-            }));
-
-            const btn = form.querySelector('.download-btn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-text">Downloading...</span>';
-            btn.disabled = true;
-
-            setTimeout(() => {
-              btn.innerHTML = originalText;
-              btn.disabled = false;
-              this.shadowRoot.querySelector('.email-input').value = '';
-            }, 2000);
-          }
-        });
-      }
-    }
-  }
-
-  // Register the custom element
-  if (!customElements.get('white-paper-widget')) {
-    customElements.define('white-paper-widget', WhitePaperWidget);
-  }
-
-  /**
-   * Custom element wrapper for placement with pure CSS hover
-   * Contains the preview and menu as siblings for easy hover interaction
-   */
-  class PlacementWrapper extends HTMLElement {
-    constructor() {
-      super();
-      this.render();
-    }
-
-    render() {
-      // Add global styles for hover interaction (only once)
-      if (!document.querySelector('#placement-wrapper-styles')) {
-        const style = document.createElement('style');
-        style.id = 'placement-wrapper-styles';
-        style.textContent = `
-          placement-wrapper {
-            display: block;
-            position: relative; /* Create positioning context for menu */
-          }
-
-          placement-menu {
-            --menu-opacity: 0;
-            --menu-transform: translateY(-10px);
-            --menu-pointer-events: none;
-          }
-
-          placement-wrapper:hover placement-menu {
-            --menu-opacity: 1;
-            --menu-transform: translateY(0px);
-            --menu-pointer-events: auto;
-          }
-        `;
-        document.head.appendChild(style);
-      }
-    }
-
-    /**
-     * Set fixed state for the wrapper
-     * @param {boolean} fixed - Whether the placement is fixed
-     */
-    setFixed(fixed) {
-      this.setAttribute('data-fixed', fixed.toString());
-    }
-
-    /**
-     * Set placement position indicator
-     * @param {string} position - The placement position
-     */
-    setPosition(position) {
-      this.setAttribute('data-position', position);
-    }
-  }
-
-  /**
-   * Custom element for the component preview
-   * Uses Shadow DOM for style encapsulation
-   */
-  class ComponentPreview extends HTMLElement {
-    constructor() {
-      super();
-      this.attachShadow({ mode: 'open' });
-      this.render();
-    }
-
-    /**
-     * Render the live component preview with advanced overlay system
-     */
-    render() {
-      const containerWidth = this.getContainerWidth();
-
-      this.shadowRoot.innerHTML = `
+      this.shadowRoot.innerHTML = \`
         <style>
           :host {
-            ${getBaseStyles()}
             display: block;
-            position: relative;
-            margin: var(--spacing-md) 0;
-            /* Responsive sizing */
-            min-width: ${COMPONENT_CONFIG.minWidth}px;
-            max-width: ${COMPONENT_CONFIG.maxWidth}px;
             width: 100%;
-            --overlay-opacity: 0.2; /* 80% transparent in placement mode */
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 20px 0;
           }
-
-          :host([data-fixed="true"]) {
-            --overlay-opacity: 0; /* Fully transparent when placed */
-            margin: 0; /* Remove margins for realistic integration */
-          }
-
-          :host([data-fixed="true"]:hover) {
-            --overlay-opacity: 0.15; /* Show overlay on hover for controls */
-          }
-
-          .preview-container {
-            position: relative;
-            width: 100%;
-            /* Container queries support */
-            container-type: inline-size;
-            isolation: isolate;
-          }
-
-          .component-wrapper {
-            position: relative;
-            width: 100%;
-            /* Remove fixed height to let component determine its size */
-            min-height: 200px;
-
-            /* Advanced dashed border using outline (doesn't affect layout) */
-            outline: 2px dashed var(--color-primary);
-            outline-offset: -2px;
-            border-radius: var(--radius-lg);
-
-            transition: all var(--transition-base);
+          .widget {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             overflow: hidden;
+            border: 1px solid #e5e7eb;
+            max-width: 100%;
           }
-
-          :host([data-fixed="true"]) .component-wrapper {
-            outline: none; /* Remove border completely when placed */
-            box-shadow: none; /* Remove shadow for realistic integration */
-            border-radius: 0; /* Remove border radius for seamless integration */
-          }
-
-          :host([data-fixed="true"]:hover) .component-wrapper {
-            outline: 2px solid var(--color-primary); /* Show border on hover */
-            outline-offset: -2px;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-          }
-
-          /* Transparent overlay system */
-          .overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(59, 130, 246, var(--overlay-opacity));
-            pointer-events: none;
-            border-radius: var(--radius-lg);
-            transition: background-color var(--transition-base);
-            z-index: 10;
-          }
-
-          /* Live component container */
-          .live-component {
-            width: 100%;
-            height: 100%;
-            position: relative;
-          }
-
-          /* Status indicator */
-          .status-indicator {
-            position: absolute;
-            top: var(--spacing-sm);
-            right: var(--spacing-sm);
-            background: var(--color-primary);
+          .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            padding: 20px;
             color: white;
-            padding: var(--spacing-xs) var(--spacing-sm);
-            border-radius: var(--radius-sm);
-            font-size: 0.75rem;
-            font-weight: var(--font-weight-medium);
-            z-index: 20;
+          }
+          .title {
+            margin: 0 0 8px 0;
+            font-size: 20px;
+            font-weight: 600;
+          }
+          .subtitle {
+            margin: 0;
             opacity: 0.9;
-            transition: opacity var(--transition-base);
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
+            font-size: 14px;
           }
-
-          :host([data-fixed="true"]) .status-indicator {
-            background: var(--color-success);
-            opacity: 0; /* Hide by default when placed */
+          .content {
+            padding: 30px;
           }
-
-          :host([data-fixed="true"]:hover) .status-indicator {
-            opacity: 0.9; /* Show on hover */
+          .description {
+            color: #4b5563;
+            margin: 0 0 20px 0;
+            line-height: 1.6;
           }
-
-          .status-icon {
-            width: 12px;
-            height: 12px;
-          }
-
-          /* Placement position indicator */
-          .position-indicator {
-            position: absolute;
-            top: var(--spacing-sm);
-            left: var(--spacing-sm);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: var(--spacing-xs) var(--spacing-sm);
-            border-radius: var(--radius-sm);
-            font-size: 0.7rem;
-            font-family: monospace;
-            z-index: 20;
-            opacity: 0.8;
-            transition: opacity var(--transition-base);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-
-          :host(:not(:hover)) .position-indicator {
-            opacity: 0.6;
-          }
-
-          :host([data-fixed="true"]) .position-indicator {
-            display: none; /* Remove completely when placed */
-          }
-
-          /* Responsive container width indicator */
-          .width-indicator {
-            position: absolute;
-            bottom: var(--spacing-sm);
-            left: var(--spacing-sm);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: var(--spacing-xs) var(--spacing-sm);
-            border-radius: var(--radius-sm);
-            font-size: 0.7rem;
-            font-family: monospace;
-            z-index: 20;
-            opacity: 0;
-            transition: opacity var(--transition-base);
-          }
-
-          :host(:hover) .width-indicator {
-            opacity: 1;
-          }
-
-          /* Ensure component is properly contained */
-          white-paper-widget {
+          .email-input {
             width: 100%;
-            height: auto;
-            display: block;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
           }
-
-          /* Menu will be controlled via JavaScript hover events */
+          .download-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+          }
+          .download-button:hover {
+            background: #2563eb;
+          }
         </style>
-
-        <div class="preview-container">
-          <div class="component-wrapper">
-            <!-- Live component preview -->
-            <div class="live-component">
-              <white-paper-widget></white-paper-widget>
-            </div>
-
-            <!-- Overlay system -->
-            <div class="overlay"></div>
-
-            <!-- Status indicator -->
-            <div class="status-indicator">
-              <svg class="status-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="${this.getAttribute('data-fixed') === 'true'
-                    ? 'M5 13l4 4L19 7'
-                    : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z'}" />
-              </svg>
-              ${this.getAttribute('data-fixed') === 'true' ? 'Placed' : 'Preview'}
-            </div>
-
-            <!-- Position indicator -->
-            <div class="position-indicator">
-              ${this.getPositionDisplay()}
-            </div>
-
-            <!-- Responsive width indicator -->
-            <div class="width-indicator">
-              ${containerWidth}px
-            </div>
+        <div class="widget">
+          <div class="header">
+            <div class="title">📄 Download Our White Paper</div>
+            <div class="subtitle">Modern Web Development Insights</div>
+          </div>
+          <div class="content">
+            <p class="description">
+              Get expert insights on building responsive web applications with the latest technologies.
+            </p>
+            <input type="email" class="email-input" placeholder="Enter your email">
+            <button class="download-button">Download Now</button>
           </div>
         </div>
-      `;
+      \`;
+    }
+  }
+  customElements.define('white-paper-widget', WhitePaperWidget);
+}
 
-      // Set up component interaction handlers
-      this.setupComponentHandlers();
+const target = document.querySelector('${this.selectedSelector.selector}');
+if (target) {
+  const widget = document.createElement('white-paper-widget');
+  target.insertAdjacentElement('${positionMethod}', widget);
+}`;
+
+      if (type === 'script') {
+        return `<script>\n${jsCode}\n</script>`;
+      }
+
+      return jsCode;
     }
 
-    /**
-     * Get the available container width for responsive sizing
-     * @returns {number} Container width in pixels
-     */
-    getContainerWidth() {
-      const parent = this.parentElement;
-      if (!parent) return COMPONENT_CONFIG.width;
+    showStatus(message, success) {
+      const statusEl = this.shadowRoot.querySelector('#statusMessage');
+      if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.style.background = success ? '#10b981' : '#ef4444';
+        statusEl.classList.add('show');
 
-      const parentRect = parent.getBoundingClientRect();
-      const availableWidth = parentRect.width - 32; // Account for padding
-
-      return Math.max(
-        COMPONENT_CONFIG.minWidth,
-        Math.min(COMPONENT_CONFIG.maxWidth, availableWidth)
-      );
-    }
-
-    /**
-     * Setup event handlers for the live component
-     */
-    setupComponentHandlers() {
-      const widget = this.shadowRoot.querySelector('white-paper-widget');
-      if (widget) {
-        // Handle download requests from the widget
-        widget.addEventListener('download-request', (e) => {
-          console.log('White paper download requested:', e.detail);
-
-          // In a real implementation, this would trigger actual download logic
-          // For demo purposes, we'll just show a notification
-          this.showDownloadNotification(e.detail.email);
-        });
+        setTimeout(() => {
+          statusEl.classList.remove('show');
+        }, 2000);
       }
     }
-
-    /**
-     * Show a temporary download notification
-     * @param {string} email - The email address entered
-     */
-    showDownloadNotification(email) {
-      const notification = document.createElement('div');
-      notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #10b981;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        z-index: 10000;
-        font-family: system-ui, sans-serif;
-        font-size: 14px;
-        max-width: 300px;
-        word-break: break-word;
-      `;
-      notification.textContent = `Download initiated for ${email}`;
-
-      document.body.appendChild(notification);
-
-      setTimeout(() => {
-        notification.remove();
-      }, 3000);
-    }
-
-    /**
-     * Get display text for current placement position
-     * @returns {string} Position display text
-     */
-    getPositionDisplay() {
-      const position = this.getAttribute('data-position') || 'after';
-      const positionMap = {
-        'before': '↑ BEFORE',
-        'after': '↓ AFTER',
-        'inside': '→ INSIDE'
-      };
-      return positionMap[position] || position.toUpperCase();
-    }
-
-    /**
-     * Set fixed state for the preview
-     * @param {boolean} fixed - Whether the placement is fixed
-     */
-    setFixed(fixed) {
-      this.setAttribute('data-fixed', fixed.toString());
-    }
-
-    /**
-     * Set placement position indicator
-     * @param {string} position - The placement position
-     */
-    setPosition(position) {
-      this.setAttribute('data-position', position);
-    }
   }
 
   /**
-   * Custom element for the placement menu
-   * Uses Shadow DOM for style encapsulation
+   * Custom element for target selection overlay
+   * Handles both keyboard and mouse navigation
    */
-  class PlacementMenu extends HTMLElement {
+  class TargetSelector extends HTMLElement {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
-      this._placement = null;
+      this.currentTarget = null;
+      this.isActive = false;
+      this.selectorGenerator = new SelectorGenerator();
     }
 
-    /**
-     * Set the placement info
-     * @param {PlacementInfo} placement - The placement information
-     */
-    set placement(value) {
-      this._placement = value;
+    connectedCallback() {
       this.render();
     }
 
-    /**
-     * Render the menu with encapsulated styles
-     */
     render() {
       this.shadowRoot.innerHTML = `
         <style>
+          ${getBaseStyles()}
+
           :host {
-            ${getBaseStyles()}
-            position: absolute;
-            top: var(--spacing-md);
-            left: var(--spacing-md);
-            z-index: 10000;
-            /* Use CSS custom properties from parent for hover control */
-            opacity: var(--menu-opacity, 0);
-            transform: var(--menu-transform, translateY(-10px));
-            pointer-events: var(--menu-pointer-events, none);
-            transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-          }
-          
-          .menu {
-            background: var(--color-background);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-            padding: var(--spacing-sm);
-            box-shadow: var(--shadow-lg);
-            display: flex;
-            gap: var(--spacing-sm);
-            font-family: var(--font-family);
-            font-size: var(--font-size-sm);
-          }
-          
-          button {
-            padding: var(--spacing-sm) var(--spacing-md);
-            border: none;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            font-size: var(--font-size-sm);
-            font-weight: var(--font-weight-medium);
-            transition: all var(--transition-fast);
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            font-family: var(--font-family);
-          }
-          
-          button:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
-          }
-          
-          button:active {
-            transform: translateY(0);
-          }
-          
-          .primary {
-            background: var(--color-primary);
-            color: white;
-          }
-          
-          .primary:hover {
-            background: var(--color-primary-hover);
-          }
-          
-          .secondary {
-            background: var(--color-secondary);
-            color: white;
-          }
-          
-          .secondary:hover {
-            background: var(--color-secondary-hover);
-          }
-          
-          .icon {
-            width: 16px;
-            height: 16px;
-          }
-        </style>
-        <div class="menu">
-          <button class="primary" id="get-code">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
-            Get Code
-          </button>
-          <button class="secondary" id="change">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Change
-          </button>
-        </div>
-      `;
-
-      // Attach event listeners
-      this.shadowRoot.getElementById('get-code').onclick = () => {
-        this.dispatchEvent(new CustomEvent('get-code', { 
-          detail: this._placement 
-        }));
-      };
-
-      this.shadowRoot.getElementById('change').onclick = () => {
-        this.dispatchEvent(new Event('change-placement'));
-      };
-    }
-  }
-
-  /**
-   * Custom element for the embed code modal
-   * Uses Shadow DOM for style encapsulation
-   */
-  class EmbedCodeModal extends HTMLElement {
-    constructor() {
-      super();
-      this.attachShadow({ mode: 'open' });
-      this._code = '';
-    }
-
-    /**
-     * Set the embed code
-     * @param {string} code - The embed code to display
-     */
-    set code(value) {
-      this._code = value;
-      this.render();
-    }
-
-    /**
-     * Render the modal with encapsulated styles
-     */
-    render() {
-      this.shadowRoot.innerHTML = `
-        <style>
-          :host {
-            ${getBaseStyles()}
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 10001;
+            pointer-events: none;
+            z-index: 10000;
+          }
+
+          .overlay {
+            position: absolute;
+            background: var(--color-overlay);
+            border: 2px solid var(--color-overlay-border);
+            border-radius: 4px;
+            pointer-events: none;
+            transition: all var(--animation-fast) var(--animation-smooth);
             display: flex;
             align-items: center;
             justify-content: center;
-            animation: fadeIn var(--transition-fast);
           }
-          
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+
+          .overlay.focused {
+            border-width: 3px;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
           }
-          
-          .backdrop {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(2px);
-          }
-          
-          .modal {
-            position: relative;
-            background: var(--color-background);
-            border-radius: var(--radius-lg);
-            padding: var(--spacing-xl);
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow: auto;
-            box-shadow: var(--shadow-xl);
-            font-family: var(--font-family);
-            animation: slideUp var(--transition-base);
-          }
-          
-          @keyframes slideUp {
-            from { 
-              opacity: 0;
-              transform: translateY(10px);
-            }
-            to { 
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          
-          h3 {
-            margin: 0 0 var(--spacing-sm) 0;
-            font-size: var(--font-size-xl);
-            font-weight: var(--font-weight-semibold);
-            color: var(--color-text);
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-          }
-          
-          .icon-title {
-            width: 24px;
-            height: 24px;
-            color: var(--color-primary);
-          }
-          
-          p {
-            margin: 0 0 var(--spacing-lg) 0;
-            color: var(--color-text-muted);
-            font-size: var(--font-size-sm);
-            line-height: 1.5;
-          }
-          
-          textarea {
-            width: 100%;
-            height: 300px;
-            padding: var(--spacing-md);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
-            font-size: var(--font-size-sm);
-            background: var(--color-surface);
-            resize: vertical;
-            box-sizing: border-box;
-            line-height: 1.5;
-          }
-          
-          textarea:focus {
-            outline: 2px solid var(--color-primary);
-            outline-offset: -1px;
-            border-color: var(--color-primary);
-          }
-          
-          .actions {
-            margin-top: var(--spacing-lg);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          }
-          
-          .button-group {
-            display: flex;
-            gap: var(--spacing-sm);
-          }
-          
-          button {
-            padding: var(--spacing-sm) var(--spacing-lg);
-            border: none;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            font-size: var(--font-size-sm);
-            font-weight: var(--font-weight-medium);
-            transition: all var(--transition-fast);
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            font-family: var(--font-family);
-          }
-          
-          button:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
-          }
-          
-          button:active {
-            transform: translateY(0);
-          }
-          
-          .primary {
-            background: var(--color-primary);
+
+          .label {
+            background: var(--color-success);
             color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-family: var(--font-family);
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            white-space: nowrap;
+            user-select: none;
+            pointer-events: none;  /* Prevent label from blocking mouse events */
           }
-          
-          .primary:hover {
-            background: var(--color-primary-hover);
+
+          .hint {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-left: 8px;
           }
-          
-          .secondary {
-            background: transparent;
-            color: var(--color-text-muted);
-            border: 1px solid var(--color-border);
-          }
-          
-          .secondary:hover {
-            background: var(--color-surface);
-            border-color: var(--color-text-muted);
-          }
-          
-          .success-message {
-            color: var(--color-success);
-            font-size: var(--font-size-sm);
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            opacity: 0;
-            transition: opacity var(--transition-base);
-          }
-          
-          .success-message.show {
-            opacity: 1;
-          }
-          
-          .icon-small {
-            width: 16px;
-            height: 16px;
+
+          .selector-preview {
+            font-family: monospace;
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-top: 4px;
+            display: block;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
         </style>
-        <div class="backdrop" id="backdrop"></div>
-        <div class="modal">
-          <h3>
-            <svg class="icon-title" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
-            Component Embed Code
-          </h3>
-          <p>Copy this code and paste it into your website's HTML or tag manager to embed the component:</p>
-          <textarea readonly id="code-textarea" spellcheck="false">${this._code}</textarea>
-          <div class="actions">
-            <div class="success-message" id="success">
-              <svg class="icon-small" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Copied to clipboard!
+        <div class="overlay" id="overlay">
+          <div class="label">
+            <div>
+              Select target element
+              <span class="hint">[Space/Enter]</span>
             </div>
-            <div class="button-group">
-              <button class="primary" id="copy">
-                <svg class="icon-small" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                Copy Code
-              </button>
-              <button class="secondary" id="close">Close</button>
-            </div>
+            <div class="selector-preview" id="selectorPreview"></div>
           </div>
         </div>
       `;
 
-      // Attach event listeners
-      const backdrop = this.shadowRoot.getElementById('backdrop');
-      const closeBtn = this.shadowRoot.getElementById('close');
-      const copyBtn = this.shadowRoot.getElementById('copy');
-      const textarea = this.shadowRoot.getElementById('code-textarea');
-      const success = this.shadowRoot.getElementById('success');
-
-      backdrop.onclick = closeBtn.onclick = () => {
-        this.remove();
-      };
-
-      copyBtn.onclick = () => {
-        textarea.select();
-        document.execCommand('copy');
-        success.classList.add('show');
-        setTimeout(() => {
-          success.classList.remove('show');
-        }, 2000);
-      };
+      this.overlay = this.shadowRoot.getElementById('overlay');
+      this.selectorPreview = this.shadowRoot.getElementById('selectorPreview');
     }
-  }
 
-  // Register custom elements
-  if (!customElements.get('placement-wrapper')) {
-    customElements.define('placement-wrapper', PlacementWrapper);
-  }
-  if (!customElements.get('component-preview')) {
-    customElements.define('component-preview', ComponentPreview);
-  }
-  if (!customElements.get('placement-menu')) {
-    customElements.define('placement-menu', PlacementMenu);
-  }
-  if (!customElements.get('embed-modal')) {
-    customElements.define('embed-modal', EmbedCodeModal);
+    /**
+     * Show overlay for an element
+     * @param {HTMLElement} element - Target element
+     * @param {boolean} focused - Whether element has keyboard focus
+     */
+    showOverlay(element, focused = false) {
+      if (!element) {
+        this.hideOverlay();
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      this.overlay.style.left = `${rect.left}px`;
+      this.overlay.style.top = `${rect.top}px`;
+      this.overlay.style.width = `${rect.width}px`;
+      this.overlay.style.height = `${rect.height}px`;
+      this.overlay.style.opacity = '1';
+
+      if (focused) {
+        this.overlay.classList.add('focused');
+      } else {
+        this.overlay.classList.remove('focused');
+      }
+
+      // Generate selectors and show preview
+      if (this.selectorPreview && this.selectorGenerator) {
+        const selectors = this.selectorGenerator.generateSelectors(element);
+        const previewSelectors = selectors.slice(0, 2).map(s => s.selector);
+        if (previewSelectors.length > 0) {
+          this.selectorPreview.textContent = previewSelectors.join(', ');
+          this.selectorPreview.style.display = 'inline-block';
+        } else {
+          this.selectorPreview.style.display = 'none';
+        }
+      }
+
+      this.currentTarget = element;
+    }
+
+    /**
+     * Hide the overlay
+     */
+    hideOverlay() {
+      this.overlay.style.opacity = '0';
+      if (this.selectorPreview) {
+        this.selectorPreview.textContent = '';
+        this.selectorPreview.style.display = 'none';
+      }
+      this.currentTarget = null;
+    }
+
+    /**
+     * Activate target selection mode
+     */
+    activate() {
+      this.isActive = true;
+      // Keep pointer-events always none to avoid interference
+      this.style.pointerEvents = 'none';
+    }
+
+    /**
+     * Deactivate target selection mode
+     */
+    deactivate() {
+      this.isActive = false;
+      this.hideOverlay();
+      this.style.pointerEvents = 'none';
+    }
   }
 
   /**
-   * Main component placement controller
+   * Custom element for radial placement position menu
+   * Video game-style circular button layout
    */
-  class ComponentPlacementController {
+  class PlacementPositionMenu extends HTMLElement {
     constructor() {
-      /**
-       * @type {'inactive'|'placement'|'fixed'}
-       */
-      this.mode = 'inactive';
-      
-      /**
-       * @type {HTMLElement|null}
-       */
-      this.currentTarget = null;
-      
-      /**
-       * @type {PlacementInfo|null}
-       */
-      this.fixedPlacement = null;
-      
-      /**
-       * @type {ComponentPreview|null}
-       */
-      this.previewElement = null;
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.targetElement = null;
+      this.selectedPosition = null;
+      this.focusedIndex = 0;
+      this.positions = ['before', 'inside', 'after'];
+    }
 
-      /**
-       * @type {PlacementWrapper|null}
-       */
-      this.wrapperElement = null;
+    connectedCallback() {
+      this.render();
+      this.setupKeyboardNavigation();
+    }
 
-      /**
-       * @type {PlacementMenu|null}
-       */
-      this.menuElement = null;
+    render() {
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${getBaseStyles()}
 
-      /**
-       * Animation frame ID for smooth mouse tracking
-       * @type {number|null}
-       */
-      this.animationFrame = null;
+          :host {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
 
-      /**
-       * Current placement position
-       * @type {string|null}
-       */
-      this.currentPosition = null;
+          .menu-container {
+            position: absolute;
+            pointer-events: auto;
+            animation: fadeIn var(--animation-normal) var(--animation-smooth);
+          }
 
-      /**
-       * Target stability tracking
-       */
-      this.candidateTarget = null;
-      this.candidateCount = 0;
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: scale(0.9);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
 
-      this.boundHandlers = {
-        mouseMove: this.handleMouseMove.bind(this), // Remove debounce wrapper
-        click: this.handleClick.bind(this),
-        escape: this.handleEscape.bind(this)
-      };
+          .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+          }
+
+          .position-button {
+            background: white;
+            border: 2px solid var(--color-primary);
+            color: var(--color-primary);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-family: var(--font-family);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--animation-fast) var(--animation-smooth);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 140px;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          }
+
+          .position-button:hover,
+          .position-button:focus {
+            background: var(--color-primary);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+          }
+
+          .position-button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 4px 12px rgba(59, 130, 246, 0.3);
+          }
+
+          .position-button.selected {
+            background: var(--color-success);
+            border-color: var(--color-success);
+            color: white;
+          }
+
+          .icon {
+            font-size: 18px;
+          }
+
+          .horizontal-layout {
+            flex-direction: row;
+          }
+
+          .hint {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-family: var(--font-family);
+            font-size: 12px;
+            white-space: nowrap;
+          }
+        </style>
+        <div class="menu-container" id="menu">
+          <div class="button-group" id="buttonGroup">
+            <button class="position-button" data-position="before" tabindex="0">
+              <span class="icon">↑</span>
+              <span>Before</span>
+            </button>
+            <button class="position-button" data-position="inside" tabindex="0">
+              <span class="icon">→</span>
+              <span>Inside</span>
+            </button>
+            <button class="position-button" data-position="after" tabindex="0">
+              <span class="icon">↓</span>
+              <span>After</span>
+            </button>
+          </div>
+          <div class="hint">Click to preview position • Esc to finish</div>
+        </div>
+      `;
+
+      this.buttons = this.shadowRoot.querySelectorAll('.position-button');
+      this.menuContainer = this.shadowRoot.getElementById('menu');
     }
 
     /**
-     * Debounce function to limit frequent calls
-     * @param {Function} func - Function to debounce
-     * @param {number} wait - Wait time in milliseconds
-     * @returns {Function} Debounced function
+     * Setup keyboard navigation for the menu
      */
-    debounce(func, wait) {
-      let timeout;
-      return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-      };
+    setupKeyboardNavigation() {
+      // Handle button clicks
+      this.buttons.forEach((button, index) => {
+        button.addEventListener('click', () => {
+          this.selectPosition(button.dataset.position);
+        });
+
+        button.addEventListener('keydown', (e) => {
+          this.handleKeydown(e, index);
+        });
+      });
     }
 
     /**
-     * Generate a unique CSS selector for an element
-     * @param {HTMLElement} element - The element to generate a selector for
-     * @returns {string|null} The CSS selector or null
+     * Handle keyboard navigation
+     * @param {KeyboardEvent} event - Keyboard event
+     * @param {number} currentIndex - Current button index
      */
-    generateSelector(element) {
-      if (!element) return null;
+    handleKeydown(event, currentIndex) {
+      switch(event.key) {
+        case 'ArrowUp':
+        case 'ArrowLeft':
+          event.preventDefault();
+          this.focusPrevious(currentIndex);
+          break;
+        case 'ArrowDown':
+        case 'ArrowRight':
+          event.preventDefault();
+          this.focusNext(currentIndex);
+          break;
+        case 'Tab':
+          // Let tab work naturally but wrap around
+          if (event.shiftKey && currentIndex === 0) {
+            event.preventDefault();
+            this.buttons[this.buttons.length - 1].focus();
+          } else if (!event.shiftKey && currentIndex === this.buttons.length - 1) {
+            event.preventDefault();
+            this.buttons[0].focus();
+          }
+          break;
+        case 'Enter':
+        case ' ':
+          event.preventDefault();
+          this.selectPosition(this.buttons[currentIndex].dataset.position);
+          break;
+        case 'Escape':
+          event.preventDefault();
+          this.dispatchEvent(new Event('cancel'));
+          break;
+      }
+    }
 
-      // Prioritize ID
+    /**
+     * Focus previous button (circular navigation)
+     * @param {number} currentIndex - Current button index
+     */
+    focusPrevious(currentIndex) {
+      const prevIndex = currentIndex === 0 ? this.buttons.length - 1 : currentIndex - 1;
+      this.buttons[prevIndex].focus();
+    }
+
+    /**
+     * Focus next button (circular navigation)
+     * @param {number} currentIndex - Current button index
+     */
+    focusNext(currentIndex) {
+      const nextIndex = (currentIndex + 1) % this.buttons.length;
+      this.buttons[nextIndex].focus();
+    }
+
+    /**
+     * Select a position and dispatch event
+     * @param {string} position - Selected position
+     */
+    selectPosition(position) {
+      this.selectedPosition = position;
+
+      // Update visual state
+      this.buttons.forEach(btn => {
+        if (btn.dataset.position === position) {
+          btn.classList.add('selected');
+        } else {
+          btn.classList.remove('selected');
+        }
+      });
+
+      // Immediately update the widget position (live preview)
+      this.dispatchEvent(new CustomEvent('position-selected', {
+        detail: { position }
+      }));
+    }
+
+    /**
+     * Show menu for a target element
+     * @param {HTMLElement} target - Target element
+     */
+    showForTarget(target) {
+      this.targetElement = target;
+      const rect = target.getBoundingClientRect();
+
+      // Position menu at the bottom-right corner of the target element
+      // This keeps it attached to the selected element
+      const menuWidth = 200; // Approximate width of menu
+      const menuHeight = 250; // Approximate height of menu with confirm buttons
+
+      // Calculate position to keep menu within viewport and near element
+      let x = rect.right - 20;
+      let y = rect.bottom - 20;
+
+      // Adjust if menu would go off-screen
+      if (x + menuWidth > window.innerWidth) {
+        x = rect.left - menuWidth + 20;
+      }
+      if (y + menuHeight > window.innerHeight) {
+        y = rect.top - menuHeight + 20;
+      }
+
+      // Ensure minimum distance from viewport edges
+      x = Math.max(10, Math.min(x, window.innerWidth - menuWidth - 10));
+      y = Math.max(10, Math.min(y, window.innerHeight - menuHeight - 10));
+
+      this.menuContainer.style.left = `${x}px`;
+      this.menuContainer.style.top = `${y}px`;
+      this.menuContainer.style.transform = 'none';
+
+      // Auto-focus first button
+      setTimeout(() => {
+        this.buttons[0].focus();
+      }, 100);
+    }
+
+    /**
+     * Hide the menu
+     */
+    hide() {
+      this.style.display = 'none';
+    }
+  }
+
+  /**
+   * Custom element for selector chooser modal
+   * Displays multiple selector options for the user to choose
+   */
+  class SelectorChooser extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.selectors = [];
+      this.selectedIndex = 0;
+    }
+
+    connectedCallback() {
+      this.render();
+
+      // If selectors were set before connection, render them now
+      if (this.selectors && this.selectors.length > 0) {
+        this.setSelectors(this.selectors);
+      }
+    }
+
+    render() {
+      if (!this.shadowRoot) {
+        console.error('SelectorChooser: shadowRoot not initialized');
+        return;
+      }
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${getBaseStyles()}
+
+          :host {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            animation: fadeIn var(--animation-fast);
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          .modal {
+            background: white;
+            border-radius: 12px;
+            width: min(600px, 80vw);
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            animation: slideUp var(--animation-normal) var(--animation-smooth);
+          }
+
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
+          h3 {
+            margin: 0;
+            font-family: var(--font-family);
+            font-size: 18px;
+            color: #111;
+          }
+
+          .body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            /* Add bottom padding to prevent last item being hidden by footer */
+            padding-bottom: 24px;
+          }
+
+          .selector-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .selector-option {
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            font-family: var(--font-family);
+          }
+
+          .selector-option:hover,
+          .selector-option:focus {
+            border-color: var(--color-primary);
+            background: rgba(59, 130, 246, 0.05);
+          }
+
+          .selector-option:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+          }
+
+          .selector-option[aria-checked="true"] {
+            border-color: var(--color-success);
+            background: rgba(16, 185, 129, 0.05);
+          }
+
+          .selector-type {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #6b7280;
+            margin-bottom: 4px;
+            font-weight: 600;
+          }
+
+          .selector-value {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            color: #111;
+            word-break: break-all;
+            user-select: text; /* Allow selection of selector text for copying */
+          }
+
+          .selector-confidence {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #f3f4f6;
+          }
+
+          .confidence-high {
+            background: #d1fae5;
+            color: #065f46;
+          }
+
+          .confidence-medium {
+            background: #fed7aa;
+            color: #92400e;
+          }
+
+          .confidence-low {
+            background: #fee2e2;
+            color: #991b1b;
+          }
+
+          .footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            background: white;
+            /* Shadow to show when content scrolls */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            position: relative;
+            z-index: 1;
+          }
+
+          button {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-family: var(--font-family);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--animation-fast);
+            border: none;
+          }
+
+          .confirm-btn {
+            background: var(--color-primary);
+            color: white;
+          }
+
+          .confirm-btn:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+          }
+
+          .confirm-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+          }
+
+          .cancel-btn {
+            background: #f3f4f6;
+            color: #4b5563;
+          }
+
+          .cancel-btn:hover {
+            background: #e5e7eb;
+          }
+
+          button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+          }
+        </style>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="selector-title">
+          <div class="header">
+            <h3 id="selector-title">Choose a selector for the target element</h3>
+          </div>
+          <div class="body">
+            <div class="selector-list" role="radiogroup" aria-label="Available selectors" id="selectorList"></div>
+          </div>
+          <div class="footer">
+            <button class="cancel-btn" id="cancelBtn">Cancel</button>
+            <button class="confirm-btn" id="confirmBtn" disabled>Use Selected</button>
+          </div>
+        </div>
+      `;
+
+      this.setupEventListeners();
+    }
+
+    /**
+     * Setup event listeners for the modal
+     */
+    setupEventListeners() {
+      if (!this.shadowRoot) return;
+
+      const confirmBtn = this.shadowRoot.getElementById('confirmBtn');
+      const cancelBtn = this.shadowRoot.getElementById('cancelBtn');
+
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+          this.confirm();
+        });
+      }
+
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          this.cancel();
+        });
+      }
+
+      // Handle keyboard navigation
+      this.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.cancel();
+        }
+      });
+    }
+
+    /**
+     * Set the selector options
+     * @param {Array} selectors - Array of selector objects
+     */
+    setSelectors(selectors) {
+      // Deduplicate selectors by combining those with same selector string
+      const deduplicatedMap = new Map();
+
+      selectors.forEach(selector => {
+        const key = selector.selector;
+        if (deduplicatedMap.has(key)) {
+          const existing = deduplicatedMap.get(key);
+          // Combine types and keep highest confidence
+          existing.types.push(selector.type);
+          if (selector.confidence === 'high' && existing.confidence !== 'high') {
+            existing.confidence = selector.confidence;
+          }
+        } else {
+          deduplicatedMap.set(key, {
+            selector: selector.selector,
+            types: [selector.type],
+            confidence: selector.confidence,
+            // Keep original selector object for compatibility
+            originalSelector: selector
+          });
+        }
+      });
+
+      // Convert back to array with combined types
+      this.selectors = Array.from(deduplicatedMap.values()).map(item => ({
+        selector: item.selector,
+        type: item.types.join(', '),
+        confidence: item.confidence,
+        // Use the first original selector for other properties
+        ...item.originalSelector
+      }));
+
+      // If not connected yet, wait for connectedCallback
+      if (!this.isConnected) {
+        return;
+      }
+
+      // Ensure shadowRoot is rendered
+      if (!this.shadowRoot) {
+        this.render();
+      }
+
+      const list = this.shadowRoot.getElementById('selectorList');
+      if (!list) {
+        console.error('SelectorChooser: selectorList element not found');
+        return;
+      }
+
+      list.innerHTML = '';
+
+      this.selectors.forEach((selector, index) => {
+        const option = document.createElement('div');
+        option.className = 'selector-option';
+        option.tabIndex = index === 0 ? 0 : -1;  // Only first item in tab order
+        option.setAttribute('role', 'radio');
+        option.setAttribute('aria-checked', 'false');
+        option.setAttribute('id', `selector-${index}`);
+        option.innerHTML = `
+          <div class="selector-type">${selector.type}</div>
+          <div class="selector-value">${selector.selector}</div>
+          <span class="selector-confidence confidence-${selector.confidence}">
+            ${selector.confidence} confidence
+          </span>
+        `;
+
+        option.addEventListener('click', () => {
+          this.selectOption(index);
+        });
+
+        option.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.confirmSelection();
+          } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const prevIndex = index > 0 ? index - 1 : selectors.length - 1;
+            this.selectOption(prevIndex);
+            list.children[prevIndex].focus();
+          } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            const nextIndex = (index + 1) % selectors.length;
+            this.selectOption(nextIndex);
+            list.children[nextIndex].focus();
+          }
+        });
+
+        list.appendChild(option);
+      });
+
+      // Auto-focus first option
+      if (list.children.length > 0) {
+        list.children[0].focus();
+        this.selectOption(0);
+      }
+    }
+
+    /**
+     * Select an option
+     * @param {number} index - Option index
+     */
+    selectOption(index) {
+      this.selectedIndex = index;
+      const options = this.shadowRoot.querySelectorAll('.selector-option');
+      options.forEach((opt, i) => {
+        if (i === index) {
+          opt.setAttribute('aria-checked', 'true');
+          opt.setAttribute('tabindex', '0');
+        } else {
+          opt.setAttribute('aria-checked', 'false');
+          opt.setAttribute('tabindex', '-1');
+        }
+      });
+
+      // Enable confirm button now that we have a selection
+      const confirmBtn = this.shadowRoot.getElementById('confirmBtn');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+      }
+    }
+
+    /**
+     * Confirm selection and dispatch event
+     */
+    confirm() {
+      if (this.selectors[this.selectedIndex]) {
+        this.dispatchEvent(new CustomEvent('selector-chosen', {
+          detail: this.selectors[this.selectedIndex]
+        }));
+      }
+      this.remove();
+    }
+
+    /**
+     * Confirm selection (alias for keyboard interaction)
+     */
+    confirmSelection() {
+      this.confirm();
+    }
+
+    /**
+     * Cancel and close modal
+     */
+    cancel() {
+      this.dispatchEvent(new Event('cancel'));
+      this.remove();
+    }
+  }
+
+  /**
+   * Enhanced selector generator with multiple strategies
+   */
+  class SelectorGenerator {
+    /**
+     * Generate multiple selectors for an element
+     * @param {HTMLElement} element - Target element
+     * @returns {Array} Array of selector objects
+     */
+    generateSelectors(element) {
+      const selectors = [];
+
+      // ID selector (highest confidence)
       if (element.id) {
-        return `#${CSS.escape(element.id)}`;
+        selectors.push({
+          type: 'ID',
+          selector: `#${CSS.escape(element.id)}`,
+          confidence: 'high'
+        });
       }
 
-      // Build selector using tag and classes
-      let selector = element.tagName.toLowerCase();
-      
-      if (element.className && typeof element.className === 'string') {
-        const classes = element.className.trim()
-          .split(/\s+/)
-          .filter(c => c && !c.startsWith('component-'))
-          .slice(0, 2)
-          .map(c => CSS.escape(c));
-        
-        if (classes.length > 0) {
-          selector += '.' + classes.join('.');
+      // Contextual class selector (parent class + element class)
+      const contextualClassSelector = this.generateContextualClassSelector(element);
+      if (contextualClassSelector) {
+        selectors.push({
+          type: 'Contextual Class',
+          selector: contextualClassSelector,
+          confidence: this.isUniqueSelector(contextualClassSelector) ? 'high' : 'medium'
+        });
+      }
+
+      // Ancestor context selector (nearest ID/unique ancestor + element)
+      const ancestorSelector = this.generateAncestorContextSelector(element);
+      if (ancestorSelector) {
+        selectors.push({
+          type: 'Ancestor Context',
+          selector: ancestorSelector,
+          confidence: 'high'
+        });
+      }
+
+      // Hybrid semantic + class selector
+      const hybridSelector = this.generateHybridSelector(element);
+      if (hybridSelector) {
+        selectors.push({
+          type: 'Semantic + Class',
+          selector: hybridSelector,
+          confidence: this.isUniqueSelector(hybridSelector) ? 'high' : 'medium'
+        });
+      }
+
+      // Simple class selector (try to make unique with pseudo-selectors)
+      const classSelector = this.generateClassSelector(element);
+      if (classSelector) {
+        const uniqueClassSelector = this.makeUniqueWithPseudo(element, classSelector);
+        if (uniqueClassSelector) {
+          selectors.push({
+            type: uniqueClassSelector.includes(':') ? 'Class + Pseudo' : 'Class',
+            selector: uniqueClassSelector,
+            confidence: this.isUniqueSelector(uniqueClassSelector) ? 'high' : 'low'
+          });
         }
       }
 
-      // Add nth-child if needed for uniqueness
-      const parent = element.parentElement;
-      if (parent) {
-        const siblings = Array.from(parent.children);
-        const sameTagSiblings = siblings.filter(el => el.tagName === element.tagName);
-        if (sameTagSiblings.length > 1) {
-          const index = siblings.indexOf(element);
-          selector += `:nth-child(${index + 1})`;
-        }
+      // Full context path with classes
+      const fullContextPath = this.generateFullContextPath(element);
+      if (fullContextPath) {
+        selectors.push({
+          type: 'Full Context',
+          selector: fullContextPath,
+          confidence: 'medium'
+        });
       }
 
-      // Validate the selector works
-      try {
-        const matches = document.querySelectorAll(selector);
-        if (matches.length === 1 && matches[0] === element) {
-          return selector;
-        }
-      } catch (e) {
-        console.warn('Invalid selector generated:', selector);
+      // Data attribute selector
+      const dataSelector = this.generateDataSelector(element);
+      if (dataSelector) {
+        selectors.push({
+          type: 'Data Attribute',
+          selector: dataSelector,
+          confidence: 'high'
+        });
       }
 
-      // Fallback to a more specific selector
+      // Semantic path selector
+      const semanticSelector = this.generateSemanticSelector(element);
+      if (semanticSelector) {
+        selectors.push({
+          type: 'Semantic Path',
+          selector: semanticSelector,
+          confidence: 'low'
+        });
+      }
+
+      // Path selector with nth-child (last resort)
+      const pathSelector = this.generatePathSelector(element);
+      if (pathSelector) {
+        selectors.push({
+          type: 'nth-child Path',
+          selector: pathSelector,
+          confidence: 'low'
+        });
+      }
+
+      // Filter out non-unique selectors and sort by usefulness
+      const uniqueSelectors = this.filterUniqueSelectors(selectors);
+      return this.sortSelectorsByUsefulness(uniqueSelectors);
+    }
+
+    /**
+     * Generate class-based selector
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Class selector
+     */
+    generateClassSelector(element) {
+      if (!element.className || typeof element.className !== 'string') {
+        return null;
+      }
+
+      const classes = element.className.trim()
+        .split(/\s+/)
+        .filter(c => c && !c.startsWith('compose-'))
+        .slice(0, 3)
+        .map(c => CSS.escape(c));
+
+      if (classes.length === 0) return null;
+
+      return '.' + classes.join('.');
+    }
+
+    /**
+     * Generate data attribute selector
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Data attribute selector
+     */
+    generateDataSelector(element) {
+      const dataAttrs = Array.from(element.attributes)
+        .filter(attr => attr.name.startsWith('data-'))
+        .filter(attr => !attr.name.includes('compose'));
+
+      if (dataAttrs.length === 0) return null;
+
+      // Prefer meaningful data attributes
+      const meaningful = dataAttrs.find(attr =>
+        ['data-id', 'data-section', 'data-component', 'data-role'].includes(attr.name)
+      );
+
+      const attr = meaningful || dataAttrs[0];
+      return `[${attr.name}="${CSS.escape(attr.value)}"]`;
+    }
+
+    /**
+     * Generate semantic path selector
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Semantic selector
+     */
+    generateSemanticSelector(element) {
       const path = [];
       let current = element;
-      while (current && current !== document.body) {
-        let segment = current.tagName.toLowerCase();
-        if (current.id) {
-          segment = `#${CSS.escape(current.id)}`;
-          path.unshift(segment);
-          break;
+      let depth = 0;
+
+      while (current && current !== document.body && depth < 3) {
+        const tagName = current.tagName.toLowerCase();
+
+        // Only include semantic tags
+        if (['article', 'section', 'main', 'aside', 'nav', 'header', 'footer'].includes(tagName)) {
+          const selector = tagName;
+          path.unshift(selector);
         } else if (current.className) {
-          const classes = current.className.trim().split(/\s+/).slice(0, 1);
-          if (classes.length > 0 && classes[0]) {
-            segment += `.${CSS.escape(classes[0])}`;
+          // Include divs with meaningful classes
+          const meaningfulClass = current.className.split(' ')
+            .find(c => ['content', 'container', 'wrapper', 'sidebar'].some(pattern => c.includes(pattern)));
+
+          if (meaningfulClass) {
+            path.unshift(`.${CSS.escape(meaningfulClass)}`);
           }
         }
-        path.unshift(segment);
+
+        current = current.parentElement;
+        depth++;
+      }
+
+      return path.length > 0 ? path.join(' > ') : null;
+    }
+
+    /**
+     * Generate path selector with nth-child
+     * @param {HTMLElement} element - Target element
+     * @returns {string} Path selector
+     */
+    generatePathSelector(element) {
+      const path = [];
+      let current = element;
+
+      while (current && current !== document.body) {
+        let selector = current.tagName.toLowerCase();
+
+        // Add nth-child if needed
+        if (current.parentElement) {
+          const siblings = Array.from(current.parentElement.children);
+          const sameTagSiblings = siblings.filter(el => el.tagName === current.tagName);
+
+          if (sameTagSiblings.length > 1) {
+            const index = siblings.indexOf(current);
+            selector += `:nth-child(${index + 1})`;
+          }
+        }
+
+        path.unshift(selector);
         current = current.parentElement;
       }
-      
-      return path.join(' > ');
+
+      return path.slice(-3).join(' > '); // Last 3 levels only
     }
 
     /**
-     * Calculate placement score for an element with responsive awareness
-     * @param {HTMLElement} element - The element to score
-     * @returns {number} Score from 0 to 100
+     * Generate contextual class selector (parent class + element class)
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Contextual class selector
      */
-    calculatePlacementScore(element) {
-      let score = 0;
+    generateContextualClassSelector(element) {
+      const elementClass = this.getMostMeaningfulClass(element);
+      if (!elementClass) return null;
 
+      let parent = element.parentElement;
+      let depth = 0;
+
+      while (parent && parent !== document.body && depth < 2) {
+        const parentClass = this.getMostMeaningfulClass(parent);
+        if (parentClass) {
+          // Try parent + element combination
+          const selector = `.${parentClass} .${elementClass}`;
+          if (this.isUniqueSelector(selector)) {
+            return selector;
+          }
+
+          // Try with parent tag for more specificity
+          const parentTag = parent.tagName.toLowerCase();
+          if (['aside', 'article', 'section', 'main', 'nav'].includes(parentTag)) {
+            return `${parentTag}.${parentClass} .${elementClass}`;
+          }
+        }
+        parent = parent.parentElement;
+        depth++;
+      }
+
+      return null;
+    }
+
+    /**
+     * Generate ancestor context selector (find nearest ID/unique ancestor)
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Ancestor context selector
+     */
+    generateAncestorContextSelector(element) {
+      const elementClass = this.getMostMeaningfulClass(element);
+      const elementTag = element.tagName.toLowerCase();
+      let elementSelector = elementClass ? `.${elementClass}` : elementTag;
+
+      let ancestor = element.parentElement;
+      let depth = 0;
+
+      while (ancestor && ancestor !== document.body && depth < 4) {
+        // Check for ID
+        if (ancestor.id) {
+          return `#${CSS.escape(ancestor.id)} ${elementSelector}`;
+        }
+
+        // Check for unique class combination
+        const ancestorClass = this.getMostMeaningfulClass(ancestor);
+        if (ancestorClass) {
+          const selector = `.${ancestorClass} ${elementSelector}`;
+          if (this.isUniqueSelector(selector)) {
+            return selector;
+          }
+        }
+
+        ancestor = ancestor.parentElement;
+        depth++;
+      }
+
+      return null;
+    }
+
+    /**
+     * Generate hybrid semantic + class selector
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Hybrid selector
+     */
+    generateHybridSelector(element) {
       const tagName = element.tagName.toLowerCase();
-      const classList = element.className?.toString().toLowerCase() || '';
-      const id = element.id?.toLowerCase() || '';
-      const style = window.getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
+      const elementClass = this.getMostMeaningfulClass(element);
 
-      // Tag score (0-25) - reduced to make room for responsive scoring
-      if (CONTAINER_PATTERNS.tags.includes(tagName)) {
-        score += 25;
-      } else if (['div', 'section'].includes(tagName)) {
-        score += 12;  // Increased from 8 to make sections more likely
-      }
-
-      // Class score (0-30) - reduced to make room for responsive scoring
-      const classMatches = CONTAINER_PATTERNS.classes.filter(pattern =>
-        classList.includes(pattern) || id.includes(pattern)
-      );
-      score += Math.min(30, classMatches.length * 15);
-
-      // Special bonus for hero sections and responsive demos
-      if (classList.includes('hero') || tagName === 'section' && classList.includes('hero')) {
-        score += 15;  // Extra bonus for hero sections
-      }
-      if (classList.includes('responsive') || classList.includes('breakpoint')) {
-        score += 10;  // Extra bonus for responsive test areas
-      }
-
-      // Responsive size score (0-25) - enhanced for responsive components
-      const availableWidth = rect.width;
-      const availableHeight = rect.height;
-
-      if (COMPONENT_CONFIG.responsive) {
-        // Score based on responsive breakpoints
-        if (availableWidth >= COMPONENT_CONFIG.maxWidth) {
-          score += 25; // Ideal width for maximum responsive behavior
-        } else if (availableWidth >= 600) {
-          score += 20; // Good width for desktop layout
-        } else if (availableWidth >= 400) {
-          score += 15; // Medium width for tablet layout
-        } else if (availableWidth >= COMPONENT_CONFIG.minWidth) {
-          score += 10; // Minimum acceptable width
-        } else {
-          score -= 10; // Penalize too narrow containers
+      // For semantic elements, combine with class
+      if (['aside', 'article', 'section', 'main', 'nav', 'header', 'footer'].includes(tagName)) {
+        if (elementClass) {
+          return `${tagName}.${elementClass}`;
         }
+        return tagName;
+      }
 
-        // Bonus for containers with good height
-        if (availableHeight >= 300) {
-          score += 5;
-        }
-      } else {
-        // Legacy fixed-size scoring
-        if (availableWidth >= COMPONENT_CONFIG.width && availableHeight >= 100) {
-          score += 25;
-        } else if (availableWidth >= COMPONENT_CONFIG.width) {
-          score += 15;
+      // For div/span with meaningful class, check parent semantic context
+      if (elementClass && (tagName === 'div' || tagName === 'span')) {
+        let parent = element.parentElement;
+        let depth = 0;
+
+        while (parent && parent !== document.body && depth < 2) {
+          const parentTag = parent.tagName.toLowerCase();
+          if (['aside', 'article', 'section', 'main', 'nav'].includes(parentTag)) {
+            const parentClass = this.getMostMeaningfulClass(parent);
+            if (parentClass) {
+              return `${parentTag}.${parentClass} .${elementClass}`;
+            }
+            return `${parentTag} .${elementClass}`;
+          }
+          parent = parent.parentElement;
+          depth++;
         }
       }
 
-      // Layout context score (0-15) - new responsive-aware scoring
-      if (style.display === 'flex' || style.display === 'grid') {
-        score += 10; // Modern layout containers are great for responsive components
-      }
-
-      if (style.position === 'relative' || style.position === 'static') {
-        score += 5; // Good for document flow
-      }
-
-      // Container query support detection (0-10) - new feature
-      if (this.supportsContainerQueries(element)) {
-        score += 10;
-      }
-
-      // Responsive design hints (0-10) - new feature
-      if (this.hasResponsiveDesignHints(element, classList)) {
-        score += 5;
-      }
-
-      // Penalize problematic containers
-      if (style.overflow === 'hidden' && availableHeight < 200) {
-        score -= 5; // Hidden overflow with low height might crop content
-      }
-
-      if (style.position === 'fixed' || style.position === 'absolute') {
-        score -= 5; // Positioned elements might not be ideal for responsive components
-      }
-
-      return Math.max(0, Math.min(100, score));
+      return null;
     }
 
     /**
-     * Check if element supports container queries
-     * @param {HTMLElement} element - The element to check
-     * @returns {boolean} Whether container queries are supported
+     * Generate full context path using classes
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Full context path
      */
-    supportsContainerQueries(element) {
-      // Check for CSS.supports if available
-      if (typeof CSS !== 'undefined' && CSS.supports) {
-        return CSS.supports('container-type', 'inline-size');
-      }
-
-      // Fallback: check for modern browser features
-      return 'ResizeObserver' in window && 'CSS' in window;
-    }
-
-    /**
-     * Detect responsive design hints in element
-     * @param {HTMLElement} element - The element to check
-     * @param {string} classList - The element's class list as string
-     * @returns {boolean} Whether element has responsive design hints
-     */
-    hasResponsiveDesignHints(element, classList) {
-      // Check for responsive class patterns
-      const responsivePatterns = [
-        'responsive', 'fluid', 'adaptive', 'flex', 'grid',
-        'container', 'wrapper', 'layout', 'col-', 'row-'
-      ];
-
-      const hasResponsiveClass = responsivePatterns.some(pattern =>
-        classList.includes(pattern)
-      );
-
-      if (hasResponsiveClass) return true;
-
-      // Check for CSS Grid or Flexbox usage
-      const style = window.getComputedStyle(element);
-      if (style.display === 'grid' || style.display === 'flex') {
-        return true;
-      }
-
-      // Check for viewport-relative units in width
-      if (style.width.includes('vw') || style.width.includes('%')) {
-        return true;
-      }
-
-      return false;
-    }
-
-    /**
-     * Find suitable placement target near mouse position with enhanced grid support
-     * @param {number} x - Mouse X coordinate
-     * @param {number} y - Mouse Y coordinate
-     * @returns {HTMLElement|null} The target element or null
-     */
-    findPlacementTarget(x, y) {
-      const element = document.elementFromPoint(x, y);
-      if (!element) return null;
-
-      // Check if element or any parent has the ignore attribute
-      let checkElement = element;
-      while (checkElement && checkElement !== document.body) {
-        if (checkElement.hasAttribute('data-compose-ignore')) {
-          return null; // Ignore this element and all its children
-        }
-        checkElement = checkElement.parentElement;
-      }
-
-      let candidates = [];
+    generateFullContextPath(element) {
+      const path = [];
       let current = element;
       let depth = 0;
-      const maxDepth = 6; // Increased for complex grids
 
-      while (current && current !== document.body && depth < maxDepth) {
-        // Skip elements with ignore attribute
-        if (!current.hasAttribute('data-compose-ignore')) {
-          const score = this.calculatePlacementScore(current);
-          if (score > 10) {  // Lowered from 15 to 10 for even more placement options
-            candidates.push({
-              element: current,
-              score,
-              isStable: this.isStableContainer(current) // New stability check
-            });
+      while (current && current !== document.body && depth < 4) {
+        const meaningfulClass = this.getMostMeaningfulClass(current);
+        if (meaningfulClass) {
+          path.unshift(`.${meaningfulClass}`);
+        } else {
+          const tagName = current.tagName.toLowerCase();
+          if (['aside', 'article', 'section', 'main', 'nav'].includes(tagName)) {
+            path.unshift(tagName);
           }
         }
         current = current.parentElement;
         depth++;
       }
 
-      // Prefer stable containers in scoring
-      candidates.forEach(candidate => {
-        if (candidate.isStable) {
-          candidate.score += 5; // Bonus for stable containers
+      // Only return if we have at least 2 levels
+      if (path.length >= 2) {
+        return path.join(' ');
+      }
+
+      return null;
+    }
+
+    /**
+     * Get the most meaningful class from an element
+     * @param {HTMLElement} element - Target element
+     * @returns {string|null} Most meaningful class name
+     */
+    getMostMeaningfulClass(element) {
+      if (!element.className || typeof element.className !== 'string') {
+        return null;
+      }
+
+      const classes = element.className.trim().split(/\s+/);
+
+      // Priority order for meaningful classes
+      const priorities = [
+        // Specific UI components
+        'widget-area', 'widget', 'sidebar', 'main-content', 'content-area',
+        // Layout classes
+        'container', 'wrapper', 'content', 'main', 'aside',
+        // Component classes
+        'card', 'article-card', 'hero-section', 'hero',
+        // Grid classes
+        'grid-item', 'column', 'row',
+        // Generic but useful
+        'section', 'header', 'footer'
+      ];
+
+      // Find highest priority class
+      for (const priority of priorities) {
+        const found = classes.find(c => c === priority || c.includes(priority));
+        if (found && !found.startsWith('compose-')) {
+          return CSS.escape(found);
         }
+      }
+
+      // Return first non-compose class if no priority match
+      const firstValid = classes.find(c => c && !c.startsWith('compose-'));
+      return firstValid ? CSS.escape(firstValid) : null;
+    }
+
+    /**
+     * Sort selectors by usefulness and confidence
+     * @param {Array} selectors - Array of selector objects
+     * @returns {Array} Sorted selectors
+     */
+    sortSelectorsByUsefulness(selectors) {
+      const priority = {
+        'ID': 1,
+        'Ancestor Context': 2,
+        'Contextual Class': 3,
+        'Semantic + Class': 4,
+        'Data Attribute': 5,
+        'Full Context': 6,
+        'Class': 7,
+        'Class + Pseudo': 8,
+        'Semantic Path': 9,
+        'nth-child Path': 10
+      };
+
+      return selectors.sort((a, b) => {
+        // First sort by uniqueness
+        const aUnique = this.isUniqueSelector(a.selector);
+        const bUnique = this.isUniqueSelector(b.selector);
+        if (aUnique && !bUnique) return -1;
+        if (!aUnique && bUnique) return 1;
+
+        // Then by priority
+        return (priority[a.type] || 10) - (priority[b.type] || 10);
       });
-
-      // Sort by score and return best match
-      candidates.sort((a, b) => b.score - a.score);
-
-      // Return the candidate object (with element, score, position)
-      if (candidates.length > 0) {
-        return candidates[0];
-      }
-
-      // Fallback: return basic object with the element
-      return element ? { element, score: 10, position: 'after' } : null;
     }
 
     /**
-     * Check if container is stable for placement (reduces flickering)
-     * @param {HTMLElement} element - Element to check
-     * @returns {boolean} Whether container is stable
+     * Try to make a selector unique using pseudo-selectors
+     * @param {HTMLElement} element - Target element
+     * @param {string} baseSelector - Base selector to enhance
+     * @returns {string|null} Enhanced selector or null if can't make unique
      */
-    isStableContainer(element) {
-      const style = window.getComputedStyle(element);
-      const tagName = element.tagName.toLowerCase();
-
-      // Prefer reasonably-sized containers (relaxed requirements)
-      const rect = element.getBoundingClientRect();
-      const isLarge = rect.width > 150 && rect.height > 50;  // Reduced from 200x100
-
-      // Prefer semantic containers
-      const isSemantic = ['article', 'section', 'main', 'aside', 'div'].includes(tagName);
-
-      // Prefer containers with explicit display modes
-      const hasLayout = ['flex', 'grid', 'block'].includes(style.display);
-
-      // Prefer containers with class-based identification
-      const classList = element.className?.toString().toLowerCase() || '';
-      const hasContainerClass = ['container', 'content', 'wrapper', 'demo', 'hero',
-                                  'responsive', 'breakpoint', 'width'].some(cls =>
-        classList.includes(cls)
-      );
-
-      return isLarge && (isSemantic || hasLayout || hasContainerClass);
-    }
-
-    /**
-     * Update preview position with enhanced placement logic
-     * @param {HTMLElement} target - The target element
-     * @param {string} position - Placement position: 'auto', 'before', 'after', 'inside'
-     */
-    updatePreview(target, position = 'auto') {
-      if (!this.previewElement) {
-        this.previewElement = document.createElement('component-preview');
+    makeUniqueWithPseudo(element, baseSelector) {
+      // First check if base selector is already unique
+      if (this.isUniqueSelector(baseSelector)) {
+        return baseSelector;
       }
 
-      // Remove from previous position
-      if (this.previewElement.parentNode) {
-        this.previewElement.remove();
-      }
+      // Get all elements matching the base selector
+      const matches = document.querySelectorAll(baseSelector);
+      const matchArray = Array.from(matches);
+      const elementIndex = matchArray.indexOf(element);
 
-      // Add to new position
-      if (target && target !== document.body) {
-        // Auto-detect best placement position
-        if (position === 'auto') {
-          position = this.detectBestPlacement(target);
+      if (elementIndex === -1) return null;
+
+      // Try different pseudo-selector strategies
+      const pseudoStrategies = [];
+
+      // Strategy 1: :first-child / :last-child
+      if (element.parentElement) {
+        const siblings = Array.from(element.parentElement.children);
+        if (element === siblings[0]) {
+          pseudoStrategies.push(`${baseSelector}:first-child`);
         }
+        if (element === siblings[siblings.length - 1]) {
+          pseudoStrategies.push(`${baseSelector}:last-child`);
+        }
+      }
 
-        // Place based on position
-        try {
-          switch (position) {
-            case 'before':
-              target.parentNode.insertBefore(this.previewElement, target);
-              break;
-            case 'after':
-              target.parentNode.insertBefore(this.previewElement, target.nextSibling);
-              break;
-            case 'inside':
-              // For inside placement, prefer appending to container elements
-              if (this.isContainer(target)) {
-                target.appendChild(this.previewElement);
-              } else {
-                // Fallback to after if inside isn't suitable
-                target.parentNode.insertBefore(this.previewElement, target.nextSibling);
-              }
-              break;
-            default:
-              // Default fallback
-              target.parentNode.insertBefore(this.previewElement, target.nextSibling);
+      // Strategy 2: :first-of-type / :last-of-type
+      if (element.parentElement) {
+        const sameTypeSiblings = Array.from(element.parentElement.children)
+          .filter(el => el.tagName === element.tagName);
+        if (element === sameTypeSiblings[0]) {
+          pseudoStrategies.push(`${baseSelector}:first-of-type`);
+        }
+        if (element === sameTypeSiblings[sameTypeSiblings.length - 1]) {
+          pseudoStrategies.push(`${baseSelector}:last-of-type`);
+        }
+      }
+
+      // Strategy 3: :nth-child(n)
+      if (element.parentElement) {
+        const siblings = Array.from(element.parentElement.children);
+        const nthIndex = siblings.indexOf(element) + 1;
+        if (nthIndex > 0) {
+          pseudoStrategies.push(`${baseSelector}:nth-child(${nthIndex})`);
+        }
+      }
+
+      // Strategy 4: :nth-of-type(n)
+      if (element.parentElement) {
+        const sameTypeSiblings = Array.from(element.parentElement.children)
+          .filter(el => el.tagName === element.tagName);
+        const nthTypeIndex = sameTypeSiblings.indexOf(element) + 1;
+        if (nthTypeIndex > 0) {
+          pseudoStrategies.push(`${baseSelector}:nth-of-type(${nthTypeIndex})`);
+        }
+      }
+
+      // Strategy 5: :only-child / :only-of-type
+      if (element.parentElement) {
+        const siblings = Array.from(element.parentElement.children);
+        if (siblings.length === 1) {
+          pseudoStrategies.push(`${baseSelector}:only-child`);
+        }
+        const sameTypeSiblings = siblings.filter(el => el.tagName === element.tagName);
+        if (sameTypeSiblings.length === 1) {
+          pseudoStrategies.push(`${baseSelector}:only-of-type`);
+        }
+      }
+
+      // Test each strategy for uniqueness
+      for (const selector of pseudoStrategies) {
+        if (this.isUniqueSelector(selector) && this.matchesElement(selector, element)) {
+          return selector;
+        }
+      }
+
+      // If no pseudo-selector works, try with parent context + pseudo
+      if (element.parentElement) {
+        const parentClass = this.getMostMeaningfulClass(element.parentElement);
+        if (parentClass) {
+          const contextSelector = `.${parentClass} > ${baseSelector}`;
+          if (this.isUniqueSelector(contextSelector)) {
+            return contextSelector;
           }
 
-          this.currentTarget = target;
-          this.currentPosition = position;
-
-          // Update position indicator on preview element
-          if (this.previewElement && this.previewElement.setPosition) {
-            this.previewElement.setPosition(position);
-          }
-        } catch (error) {
-          console.warn('Failed to place preview:', error);
-        }
-      }
-    }
-
-    /**
-     * Detect the best placement position for a target element
-     * @param {HTMLElement} target - The target element
-     * @returns {string} Best placement position
-     */
-    detectBestPlacement(target) {
-      const tagName = target.tagName.toLowerCase();
-      const classList = target.className?.toString().toLowerCase() || '';
-      const style = window.getComputedStyle(target);
-
-      // Check for row-like elements (should place after)
-      if (this.isRowElement(target)) {
-        return 'after';
-      }
-
-      // Check for sidebar elements (should place inside)
-      if (this.isSidebar(target)) {
-        return 'inside';
-      }
-
-      // Check for container elements (prefer inside)
-      if (this.isContainer(target)) {
-        return 'inside';
-      }
-
-      // For inline or small elements, place after
-      if (style.display.includes('inline') || target.offsetHeight < 100) {
-        return 'after';
-      }
-
-      // Default to after for most elements
-      return 'after';
-    }
-
-    /**
-     * Check if element is a row-like element (section, hero, etc.)
-     * @param {HTMLElement} element - Element to check
-     * @returns {boolean} Whether element is row-like
-     */
-    isRowElement(element) {
-      const tagName = element.tagName.toLowerCase();
-      const classList = element.className?.toString().toLowerCase() || '';
-
-      // Tag-based detection
-      if (['section', 'header', 'footer', 'nav'].includes(tagName)) {
-        return true;
-      }
-
-      // Class-based detection
-      const rowPatterns = ['hero', 'section', 'banner', 'header', 'footer', 'row'];
-      return rowPatterns.some(pattern => classList.includes(pattern));
-    }
-
-    /**
-     * Check if element is a sidebar
-     * @param {HTMLElement} element - Element to check
-     * @returns {boolean} Whether element is a sidebar
-     */
-    isSidebar(element) {
-      const tagName = element.tagName.toLowerCase();
-      const classList = element.className?.toString().toLowerCase() || '';
-
-      // Tag-based detection
-      if (tagName === 'aside') {
-        return true;
-      }
-
-      // Class-based detection
-      const sidebarPatterns = ['sidebar', 'side-bar', 'aside', 'widget', 'rail'];
-      return sidebarPatterns.some(pattern => classList.includes(pattern));
-    }
-
-    /**
-     * Check if element is a container suitable for inside placement
-     * @param {HTMLElement} element - Element to check
-     * @returns {boolean} Whether element is a suitable container
-     */
-    isContainer(element) {
-      const tagName = element.tagName.toLowerCase();
-      const classList = element.className?.toString().toLowerCase() || '';
-      const style = window.getComputedStyle(element);
-
-      // Tag-based container detection
-      if (['article', 'main', 'section', 'div'].includes(tagName)) {
-        // Additional checks for div elements
-        if (tagName === 'div') {
-          // Must have container-like classes or sufficient size
-          const containerClasses = ['content', 'container', 'wrapper', 'main'];
-          const hasContainerClass = containerClasses.some(cls => classList.includes(cls));
-          const isLargeEnough = element.offsetWidth >= 300 && element.offsetHeight >= 200;
-
-          return hasContainerClass || isLargeEnough;
-        }
-        return true;
-      }
-
-      // Style-based detection (flexbox and grid containers)
-      if (style.display === 'flex' || style.display === 'grid') {
-        return true;
-      }
-
-      return false;
-    }
-
-    /**
-     * Handle mouse move event with stable target detection
-     * @param {MouseEvent} e - The mouse event
-     */
-    handleMouseMove(e) {
-      if (this.mode !== 'placement') return;
-
-      // Simple throttle with requestAnimationFrame to prevent excessive calls
-      if (!this.animationFrame) {
-        this.animationFrame = requestAnimationFrame(() => {
-          this.animationFrame = null;
-          this.updateTargetFromMouse(e.clientX, e.clientY);
-        });
-      }
-    }
-
-    /**
-     * Update target from mouse position with stability logic
-     * @param {number} x - Mouse X coordinate
-     * @param {number} y - Mouse Y coordinate
-     */
-    updateTargetFromMouse(x, y) {
-      // Temporarily disable pointer events on preview/wrapper to avoid interference
-      const elementToDisable = this.wrapperElement || this.previewElement;
-      if (elementToDisable) {
-        elementToDisable.style.pointerEvents = 'none';
-      }
-
-      const target = this.findPlacementTarget(x, y);
-
-      // Re-enable pointer events
-      if (elementToDisable) {
-        elementToDisable.style.pointerEvents = '';
-      }
-
-      // Add stability buffer - only update if target is different for 2+ frames
-      const targetElement = target ? target.element : null;
-      const candidateElement = this.candidateTarget ? this.candidateTarget.element : null;
-
-      if (targetElement !== candidateElement) {
-        this.candidateTarget = target;
-        this.candidateCount = 1;
-      } else if (this.candidateCount < 2) {
-        this.candidateCount++;
-      }
-
-      // Only update if target is stable for 2 frames OR significantly different
-      if (this.candidateCount >= 2 && targetElement !== this.currentTarget) {
-        if (target && target.element) {
-          // Extract the element from the target object
-          this.currentTarget = target.element;
-          this.currentPosition = target.position || 'after';
-          this.updatePreview(target.element, this.currentPosition);
-        } else {
-          // No valid target - clear preview
-          this.currentTarget = null;
-          if (this.previewElement && this.previewElement.parentNode) {
-            this.previewElement.remove();
+          // Try parent + pseudo combinations
+          for (const pseudo of [':first-child', ':last-child', ':only-child']) {
+            const combinedSelector = `.${parentClass} > ${baseSelector}${pseudo}`;
+            if (this.isUniqueSelector(combinedSelector) && this.matchesElement(combinedSelector, element)) {
+              return combinedSelector;
+            }
           }
         }
       }
+
+      // If still not unique, return null to filter it out
+      return null;
     }
 
     /**
-     * Handle click event
-     * @param {MouseEvent} e - The mouse event
+     * Filter out non-unique selectors
+     * @param {Array} selectors - Array of selector objects
+     * @returns {Array} Filtered array with only unique selectors
      */
-    handleClick(e) {
-      if (this.mode !== 'placement') return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (this.currentTarget && this.previewElement) {
-        // Fix the placement
-        this.mode = 'fixed';
-        this.fixedPlacement = {
-          element: this.currentTarget,
-          selector: this.generateSelector(this.currentTarget),
-          position: this.currentPosition || 'after'
-        };
-
-        // Create wrapper for clean CSS hover
-        this.wrapperElement = document.createElement('placement-wrapper');
-        this.wrapperElement.setFixed(true);
-        this.wrapperElement.setPosition(this.currentPosition || 'after');
-
-        // Save original parent and position BEFORE moving preview
-        const originalParent = this.previewElement.parentNode;
-        const originalNextSibling = this.previewElement.nextSibling;
-
-        // Move preview into wrapper
-        this.previewElement.setFixed(true);
-        this.wrapperElement.appendChild(this.previewElement);
-
-        // Add menu to wrapper (sibling of preview)
-        this.menuElement = document.createElement('placement-menu');
-        this.menuElement.placement = this.fixedPlacement;
-        this.wrapperElement.appendChild(this.menuElement);
-
-        // Insert wrapper at original location
-        if (originalNextSibling) {
-          originalParent.insertBefore(this.wrapperElement, originalNextSibling);
-        } else {
-          originalParent.appendChild(this.wrapperElement);
+    filterUniqueSelectors(selectors) {
+      return selectors.filter(s => {
+        // Keep selectors that are unique
+        if (this.isUniqueSelector(s.selector)) {
+          return true;
         }
 
-        // DO NOT reassign previewElement - it should still point to the actual preview
-        // The wrapper is just a container
-
-        // Menu event handlers
-        this.menuElement.addEventListener('get-code', (e) => {
-          this.showEmbedCode(e.detail);
-        });
-
-        this.menuElement.addEventListener('change-placement', () => {
-          this.resetPlacement();
-        });
-      }
-    }
-
-    /**
-     * Handle escape key press
-     * @param {KeyboardEvent} e - The keyboard event
-     */
-    handleEscape(e) {
-      if (e.key === 'Escape') {
-        this.cleanup();
-      }
-    }
-
-    /**
-     * Show embed code modal
-     * @param {PlacementInfo} placement - The placement information
-     */
-    showEmbedCode(placement) {
-      // Simple embed code - just insert an iframe as example
-      const code = `<script>
-// Compose Anywhere - Insert component after ${placement.selector}
-document.querySelector('${placement.selector}').insertAdjacentHTML('afterend',
-  '<iframe src="https://example.com/widget" width="100%" height="400" style="border:none; max-width:600px;"></iframe>'
-);
-</script>`;
-
-      const modal = document.createElement('embed-modal');
-      modal.code = code;
-      document.body.appendChild(modal);
-    }
-
-    /**
-     * Reset to placement mode
-     */
-    resetPlacement() {
-      if (this.wrapperElement) {
-        // Extract preview from wrapper and restore to original position
-        const preview = this.wrapperElement.querySelector('component-preview');
-        if (preview) {
-          this.wrapperElement.parentNode.insertBefore(preview, this.wrapperElement);
-          preview.setFixed(false);
-          this.previewElement = preview;
+        // For non-unique selectors, only keep if confidence is explicitly marked as acceptable
+        // or if it's a fallback selector type
+        if (s.type === 'nth-child Path' && s.confidence === 'low') {
+          // Keep nth-child as absolute last resort
+          return true;
         }
-        this.wrapperElement.remove();
-        this.wrapperElement = null;
-      }
 
-      if (this.menuElement) {
-        this.menuElement = null; // Already removed with wrapper
-      }
-
-      this.mode = 'placement';
-      this.fixedPlacement = null;
+        // Filter out non-unique selectors
+        return false;
+      });
     }
 
     /**
-     * Clean up and deactivate
+     * Check if a selector matches a specific element
+     * @param {string} selector - CSS selector
+     * @param {HTMLElement} element - Element to check
+     * @returns {boolean} Whether selector matches the element
      */
-    cleanup() {
-      document.removeEventListener('mousemove', this.boundHandlers.mouseMove);
-      document.removeEventListener('click', this.boundHandlers.click);
-      document.removeEventListener('keydown', this.boundHandlers.escape);
-
-      // Cancel any pending animation frame
-      if (this.animationFrame) {
-        cancelAnimationFrame(this.animationFrame);
-        this.animationFrame = null;
+    matchesElement(selector, element) {
+      try {
+        const matches = document.querySelectorAll(selector);
+        return Array.from(matches).includes(element);
+      } catch {
+        return false;
       }
-
-      if (this.wrapperElement) {
-        this.wrapperElement.remove();
-        this.wrapperElement = null;
-      } else if (this.previewElement) {
-        this.previewElement.remove();
-        this.previewElement = null;
-      }
-
-      if (this.menuElement) {
-        this.menuElement = null; // Already removed with wrapper
-      }
-
-      // Remove any open modals
-      document.querySelectorAll('embed-modal').forEach(el => el.remove());
-
-      this.mode = 'inactive';
-      this.currentTarget = null;
-      this.fixedPlacement = null;
-
-      console.log('Compose Anywhere deactivated');
     }
 
     /**
-     * Initialize placement mode
+     * Check if selector is unique in document
+     * @param {string} selector - CSS selector
+     * @returns {boolean} Whether selector is unique
      */
-    init() {
-      // Clean up any existing instance
-      this.cleanup();
-
-      this.mode = 'placement';
-
-      // Add event listeners
-      document.addEventListener('mousemove', this.boundHandlers.mouseMove);
-      document.addEventListener('click', this.boundHandlers.click, true);
-      document.addEventListener('keydown', this.boundHandlers.escape);
-
-      console.log('🎯 Compose Anywhere activated!');
-      console.log('• Move mouse to preview component placement');
-      console.log('• Click to confirm position');
-      console.log('• Press ESC to cancel');
+    isUniqueSelector(selector) {
+      try {
+        const matches = document.querySelectorAll(selector);
+        return matches.length === 1;
+      } catch (e) {
+        console.warn('Invalid selector:', selector, e);
+        return false;
+      }
     }
   }
 
-  // Initialize the controller
-  const controller = new ComponentPlacementController();
+  /**
+   * Focus management utilities
+   */
+  class FocusManager {
+    constructor() {
+      this.originalFocus = null;
+      this.originalTabIndexes = new Map();
+      this.focusableElements = [];
+    }
+
+    /**
+     * Save current focus state
+     */
+    saveFocus() {
+      this.originalFocus = document.activeElement;
+    }
+
+    /**
+     * Restore original focus
+     */
+    restoreFocus() {
+      if (this.originalFocus && this.originalFocus.focus) {
+        this.originalFocus.focus();
+      }
+    }
+
+    /**
+     * Make elements focusable for target selection
+     * @param {NodeList|Array} elements - Elements to make focusable
+     */
+    makeFocusable(elements) {
+      this.focusableElements = Array.from(elements);
+
+      this.focusableElements.forEach(el => {
+        // Save original tabindex
+        this.originalTabIndexes.set(el, el.getAttribute('tabindex'));
+
+        // Make focusable
+        el.setAttribute('tabindex', '0');
+      });
+    }
+
+    /**
+     * Restore original tabindex values
+     */
+    restoreTabIndexes() {
+      this.originalTabIndexes.forEach((value, element) => {
+        if (value === null) {
+          element.removeAttribute('tabindex');
+        } else {
+          element.setAttribute('tabindex', value);
+        }
+      });
+
+      this.originalTabIndexes.clear();
+      this.focusableElements = [];
+    }
+
+    /**
+     * Get next focusable element
+     * @param {HTMLElement} current - Current element
+     * @returns {HTMLElement|null} Next focusable element
+     */
+    getNextFocusable(current) {
+      const index = this.focusableElements.indexOf(current);
+      if (index === -1 || index === this.focusableElements.length - 1) {
+        return this.focusableElements[0];
+      }
+      return this.focusableElements[index + 1];
+    }
+
+    /**
+     * Get previous focusable element
+     * @param {HTMLElement} current - Current element
+     * @returns {HTMLElement|null} Previous focusable element
+     */
+    getPreviousFocusable(current) {
+      const index = this.focusableElements.indexOf(current);
+      if (index <= 0) {
+        return this.focusableElements[this.focusableElements.length - 1];
+      }
+      return this.focusableElements[index - 1];
+    }
+  }
+
+  /**
+   * Custom element for embed code modal with ARIA dialog pattern
+   */
+  class EmbedCodeModal extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._code = '';
+      this._targetElement = null;
+      this.trapFocus = this.trapFocus.bind(this);
+      this.previousFocus = null;
+    }
+
+    connectedCallback() {
+      this.render();
+      this.setupKeyboardHandling();
+      this.setupFocusTrap();
+    }
+
+    disconnectedCallback() {
+      // Restore focus when modal closes
+      if (this.previousFocus && this.previousFocus.focus) {
+        this.previousFocus.focus();
+      }
+    }
+
+    set code(value) {
+      this._code = value;
+      const codeEl = this.shadowRoot?.getElementById('codeContent');
+      if (codeEl) {
+        codeEl.textContent = value;
+      }
+    }
+
+    set targetElement(el) {
+      this._targetElement = el;
+    }
+
+    render() {
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${getBaseStyles()}
+
+          :host {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10003;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            animation: fadeIn var(--animation-fast);
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          .modal {
+            background: white;
+            border-radius: 12px;
+            width: min(800px, 80vw);
+            height: min(600px, 70vh);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp var(--animation-normal) var(--animation-smooth);
+          }
+
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+
+          h2 {
+            margin: 0;
+            font-family: var(--font-family);
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+          }
+
+          .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all var(--animation-fast);
+          }
+
+          .close-btn:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+          }
+
+          .close-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+          }
+
+          .body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            /* Extra padding at bottom for scrolling */
+            padding-bottom: 40px;
+          }
+
+          .success-message {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+
+          .success-icon {
+            font-size: 24px;
+          }
+
+          .code-container {
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+          }
+
+          pre {
+            margin: 0;
+            color: #e5e7eb;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            user-select: text; /* Allow text selection for copying embed code */
+            cursor: text;
+          }
+
+          .footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            /* Shadow indicates scrollable content above */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            position: relative;
+            z-index: 1;
+          }
+
+          .footer-hint {
+            font-size: 13px;
+            color: #6b7280;
+            font-family: var(--font-family);
+          }
+
+          .footer-buttons {
+            display: flex;
+            gap: 12px;
+          }
+
+          button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-family: var(--font-family);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--animation-fast) var(--animation-smooth);
+          }
+
+          button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+          }
+
+          .btn-primary {
+            background: var(--color-primary);
+            color: white;
+          }
+
+          .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+          }
+
+          .btn-secondary {
+            background: #e5e7eb;
+            color: #4b5563;
+          }
+
+          .btn-secondary:hover {
+            background: #d1d5db;
+          }
+
+          .btn-success {
+            background: var(--color-success);
+            color: white;
+          }
+
+          .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+          }
+
+          .copied-feedback {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--color-success);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--animation-fast);
+          }
+
+          .copied-feedback.show {
+            opacity: 1;
+          }
+        </style>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <div class="header">
+            <h2 id="modal-title">Component Placed Successfully!</h2>
+            <button class="close-btn" aria-label="Close dialog" id="closeBtn">×</button>
+          </div>
+          <div class="body">
+            <div class="success-message">
+              <span class="success-icon">✅</span>
+              <div>
+                <strong>Your component has been placed on the page!</strong><br>
+                Copy the embed code below to use it permanently on your site.
+              </div>
+            </div>
+            <div class="code-container">
+              <pre id="codeContent">${this._code}</pre>
+              <div class="copied-feedback" id="copiedFeedback">Copied!</div>
+            </div>
+          </div>
+          <div class="footer">
+            <div class="footer-hint">Press ESC to close</div>
+            <div class="footer-buttons">
+              <button class="btn-success" id="copyBtn">Copy Code</button>
+              <button class="btn-primary" id="placeAnotherBtn">Place Another</button>
+              <button class="btn-secondary" id="doneBtn">Done</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+      const copyBtn = this.shadowRoot.getElementById('copyBtn');
+      const placeAnotherBtn = this.shadowRoot.getElementById('placeAnotherBtn');
+      const doneBtn = this.shadowRoot.getElementById('doneBtn');
+      const closeBtn = this.shadowRoot.getElementById('closeBtn');
+
+      copyBtn?.addEventListener('click', () => this.copyCode());
+      placeAnotherBtn?.addEventListener('click', () => this.placeAnother());
+      doneBtn?.addEventListener('click', () => this.close());
+      closeBtn?.addEventListener('click', () => this.close());
+    }
+
+    setupKeyboardHandling() {
+      this.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          this.close();
+        }
+      });
+    }
+
+    setupFocusTrap() {
+      // Save current focus before modal opens
+      this.previousFocus = document.activeElement;
+
+      // Get all focusable elements
+      const focusableElements = this.shadowRoot.querySelectorAll(
+        'button, [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (focusableElements.length > 0) {
+        // Focus first button (Copy Code)
+        setTimeout(() => {
+          const copyBtn = this.shadowRoot.getElementById('copyBtn');
+          copyBtn?.focus();
+        }, 100);
+
+        // Trap focus within modal
+        const firstFocusable = focusableElements[0];
+        const lastFocusable = focusableElements[focusableElements.length - 1];
+
+        this.shadowRoot.addEventListener('keydown', (e) => {
+          if (e.key === 'Tab') {
+            if (e.shiftKey && this.shadowRoot.activeElement === firstFocusable) {
+              e.preventDefault();
+              lastFocusable.focus();
+            } else if (!e.shiftKey && this.shadowRoot.activeElement === lastFocusable) {
+              e.preventDefault();
+              firstFocusable.focus();
+            }
+          }
+        });
+      }
+    }
+
+    async copyCode() {
+      try {
+        await navigator.clipboard.writeText(this._code);
+
+        // Show feedback
+        const feedback = this.shadowRoot.getElementById('copiedFeedback');
+        if (feedback) {
+          feedback.classList.add('show');
+          setTimeout(() => {
+            feedback.classList.remove('show');
+          }, 2000);
+        }
+
+        // Update button temporarily
+        const copyBtn = this.shadowRoot.getElementById('copyBtn');
+        if (copyBtn) {
+          const originalText = copyBtn.textContent;
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.textContent = originalText;
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Failed to copy code:', err);
+      }
+    }
+
+    placeAnother() {
+      this.dispatchEvent(new Event('place-another'));
+      this.close();
+    }
+
+    close() {
+      this.dispatchEvent(new Event('close'));
+      this.remove();
+    }
+  }
+
+  // Register custom elements
+  if (!customElements.get('floating-menu')) {
+    customElements.define('floating-menu', FloatingMenu);
+  }
+  if (!customElements.get('target-selector')) {
+    customElements.define('target-selector', TargetSelector);
+  }
+  if (!customElements.get('placement-position-menu')) {
+    customElements.define('placement-position-menu', PlacementPositionMenu);
+  }
+  if (!customElements.get('selector-chooser')) {
+    customElements.define('selector-chooser', SelectorChooser);
+  }
+  if (!customElements.get('embed-code-modal')) {
+    customElements.define('embed-code-modal', EmbedCodeModal);
+  }
+
+  // ===================================================================
+  // MAIN CONTROLLER
+  // ===================================================================
+
+  /**
+   * TwoStepPlacementController - Core Orchestration Class
+   *
+   * The main controller that orchestrates the entire component placement workflow.
+   * Manages state transitions, user interactions, and coordinates between all UI components.
+   *
+   * Workflow States:
+   * 1. 'inactive' - Tool not active, ready to start
+   * 2. 'selecting-target' - User hovering/selecting target container
+   * 3. 'choosing-selector' - User refining selector choice (if multiple options)
+   * 4. 'complete' - Target selected, floating menu active for configuration
+   *
+   * Key Responsibilities:
+   * - Mouse movement tracking with debounced container detection
+   * - Click handling for target selection
+   * - Keyboard navigation support (Space/Enter for selection)
+   * - State management across all components
+   * - Event coordination between floating menu, selector chooser, etc.
+   * - Live preview management with widget placement/removal
+   *
+   * Components Managed:
+   * - TargetSelector: Overlay for highlighting containers
+   * - FloatingMenu: Configuration panel for embed settings
+   * - SelectorChooser: Dialog for selecting CSS selector when multiple options
+   * - FocusManager: Accessibility and keyboard navigation
+   * - SelectorGenerator: Advanced CSS selector generation with confidence scoring
+   */
+  class TwoStepPlacementController {
+    constructor() {
+      // ===== STATE MANAGEMENT =====
+      this.state = 'inactive';              // Current workflow state
+      this.targetElement = null;            // Selected target container
+      this.selectedSelector = null;         // Active CSS selector
+      this.availableSelectors = [];         // All selector options with confidence
+      this.selectedPosition = 'after';      // Component placement position
+
+      // ===== CORE SERVICES =====
+      this.focusManager = new FocusManager();        // Keyboard navigation & accessibility
+      this.selectorGenerator = new SelectorGenerator(); // Advanced CSS selector generation
+
+      // ===== UI COMPONENTS =====
+      this.targetSelector = null;           // Green overlay for highlighting containers
+      this.floatingMenu = null;             // Main configuration panel
+      this.selectorChooser = null;          // Selector choice dialog
+
+      // ===== INTERACTION STATE =====
+      this.currentHoverTarget = null;       // Currently highlighted element
+
+      // ===== BOUND EVENT HANDLERS =====
+      // Pre-bind all event handlers for consistent `this` context
+      this.handleMouseMove = this.handleMouseMove.bind(this);
+      this.handleClick = this.handleClick.bind(this);
+      this.handleKeyDown = this.handleKeyDown.bind(this);
+      this.handleFocus = this.handleFocus.bind(this);
+      this.handleBlur = this.handleBlur.bind(this);
+    }
+
+    /**
+     * Initialize the placement flow
+     */
+    init() {
+      console.log('🎯 Compose Anywhere v2 - Two-Step Placement');
+      console.log('• Tab through elements or hover with mouse');
+      console.log('• Space/Enter to select target');
+      console.log('• Choose selector and position');
+      console.log('• Press ESC to cancel');
+
+      this.cleanup();
+      this.state = 'selecting-target';
+
+      // Save current focus
+      this.focusManager.saveFocus();
+
+      // Create target selector overlay
+      this.targetSelector = document.createElement('target-selector');
+      document.body.appendChild(this.targetSelector);
+      this.targetSelector.activate();
+
+      // Create and add floating menu
+      this.floatingMenu = document.createElement('floating-menu');
+      document.body.appendChild(this.floatingMenu);
+
+      // Listen to floating menu events
+      this.floatingMenu.addEventListener('position-changed', (e) => {
+        this.selectedPosition = e.detail.position;
+        this.updateWidgetPosition();
+      });
+
+      this.floatingMenu.addEventListener('reopen-selector-chooser', () => {
+        this.reopenSelectorChooser();
+      });
+
+      this.floatingMenu.addEventListener('request-new-target', () => {
+        // Clear current selection and restart target selection
+        this.restartTargetSelection();
+      });
+
+      // Setup target selection mode
+      this.setupTargetSelection();
+    }
+
+    /**
+     * Setup target selection mode
+     */
+    setupTargetSelection() {
+      // Find all potential target elements
+      const targets = this.findSelectableElements();
+
+      // Make them focusable for keyboard navigation
+      this.focusManager.makeFocusable(targets);
+
+      // Add event listeners
+      document.addEventListener('mousemove', this.handleMouseMove);
+      document.addEventListener('click', this.handleClick, true);
+      document.addEventListener('keydown', this.handleKeyDown, true);
+
+      // Add focus listeners to all targets
+      targets.forEach(el => {
+        el.addEventListener('focus', this.handleFocus);
+        el.addEventListener('blur', this.handleBlur);
+      });
+    }
+
+    /**
+     * Find all selectable elements in the page
+     * @returns {Array} Array of selectable elements
+     */
+    findSelectableElements() {
+      const elements = [];
+
+      // Define selectors for meaningful container elements
+      const containerSelectors = [
+        'article', 'section', 'aside', 'nav', 'header', 'footer', 'main',
+        '[data-section]', '[data-role]', '[id]',
+        '.card', '.article-card', '.grid-item', '.widget-area',
+        '.hero-section', '.sidebar', '.main-content'
+      ];
+
+      // Query for specific semantic elements and components
+      const candidates = document.querySelectorAll(containerSelectors.join(', '));
+
+      candidates.forEach(el => {
+        // Skip our own elements
+        if (el.tagName.includes('-') && el.tagName.toLowerCase().includes('compose')) {
+          return;
+        }
+
+        // Skip if element or any parent has ignore attribute
+        let current = el;
+        while (current) {
+          if (current.hasAttribute && current.hasAttribute('data-compose-ignore')) {
+            return;
+          }
+          current = current.parentElement;
+        }
+
+        // Skip if too small
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 50 || rect.height < 30) {
+          return;
+        }
+
+        // Skip invisible elements
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') {
+          return;
+        }
+
+        elements.push(el);
+      });
+
+      // Also add any large div containers as fallback
+      document.querySelectorAll('div').forEach(el => {
+        // Only add divs that are containers (have children and reasonable size)
+        if (el.children.length > 0 && !elements.includes(el)) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width >= 200 && rect.height >= 100) {
+            // Check for ignore attribute
+            let current = el;
+            let shouldSkip = false;
+            while (current) {
+              if (current.hasAttribute && current.hasAttribute('data-compose-ignore')) {
+                shouldSkip = true;
+                break;
+              }
+              current = current.parentElement;
+            }
+
+            if (!shouldSkip) {
+              const style = window.getComputedStyle(el);
+              if (style.display !== 'none' && style.visibility !== 'hidden') {
+                elements.push(el);
+              }
+            }
+          }
+        }
+      });
+
+      return elements;
+    }
+
+    /**
+     * Handle mouse move during target selection - simplified approach
+     * @param {MouseEvent} event - Mouse event
+     */
+    handleMouseMove(event) {
+      if (this.state !== 'selecting-target') return;
+
+      // Get the actual selectable element (might be a parent)
+      const element = this.getSelectableElementAt(event.clientX, event.clientY);
+
+      // Only update if target has changed
+      if (element !== this.currentHoverTarget) {
+        if (element) {
+          this.targetSelector.showOverlay(element, false);
+          this.currentHoverTarget = element;
+        } else {
+          this.targetSelector.hideOverlay();
+          this.currentHoverTarget = null;
+        }
+      }
+    }
+
+    /**
+     * Handle click during target selection
+     * @param {MouseEvent} event - Mouse event
+     */
+    handleClick(event) {
+      if (this.state !== 'selecting-target') return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const target = this.getSelectableElementAt(event.clientX, event.clientY);
+      if (target) {
+        this.selectTarget(target);
+      }
+    }
+
+    /**
+     * Handle keyboard events
+     * @param {KeyboardEvent} event - Keyboard event
+     */
+    handleKeyDown(event) {
+      if (this.state === 'selecting-target') {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          this.cleanup();
+        } else if ((event.key === 'Enter' || event.key === ' ') &&
+                   this.focusManager.focusableElements.includes(document.activeElement)) {
+          event.preventDefault();
+          this.selectTarget(document.activeElement);
+        }
+      }
+    }
+
+    /**
+     * Handle element focus
+     * @param {FocusEvent} event - Focus event
+     */
+    handleFocus(event) {
+      if (this.state === 'selecting-target') {
+        this.targetSelector.showOverlay(event.target, true);
+      }
+    }
+
+    /**
+     * Handle element blur
+     * @param {FocusEvent} event - Blur event
+     */
+    handleBlur(event) {
+      if (this.state === 'selecting-target') {
+        // Keep overlay if mouse is over the element
+        const rect = event.target.getBoundingClientRect();
+        const mouseX = event.clientX || 0;
+        const mouseY = event.clientY || 0;
+
+        if (!(mouseX >= rect.left && mouseX <= rect.right &&
+              mouseY >= rect.top && mouseY <= rect.bottom)) {
+          this.targetSelector.hideOverlay();
+        }
+      }
+    }
+
+    /**
+     * Get element at point, ignoring our UI elements
+     * Ultra-thin implementation without pointer-events toggling
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @returns {HTMLElement|null} Element at point
+     */
+    getElementAtPoint(x, y) {
+      // Get all elements at point
+      const elements = document.elementsFromPoint(x, y);
+
+      // Find first element that's not our UI
+      for (const element of elements) {
+        // Skip our custom elements
+        if (element.tagName === 'TARGET-SELECTOR' ||
+            element.tagName === 'PLACEMENT-POSITION-MENU' ||
+            element.tagName === 'SELECTOR-CHOOSER') {
+          continue;
+        }
+        // Skip elements inside our shadow roots
+        if (element.getRootNode() instanceof ShadowRoot) {
+          const host = element.getRootNode().host;
+          if (host.tagName === 'TARGET-SELECTOR' ||
+              host.tagName === 'PLACEMENT-POSITION-MENU' ||
+              host.tagName === 'SELECTOR-CHOOSER') {
+            continue;
+          }
+        }
+        return element;
+      }
+
+      return null;
+    }
+
+    /**
+     * Get the actual selectable element at a point
+     * This walks up the DOM tree to find a focusable parent
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @returns {HTMLElement|null} Selectable element or null
+     */
+    getSelectableElementAt(x, y) {
+      let element = this.getElementAtPoint(x, y);
+
+      if (!element) return null;
+
+      // Walk up the DOM tree to find a selectable parent
+      while (element && element !== document.body) {
+        if (this.focusManager.focusableElements.includes(element)) {
+          return element;
+        }
+        element = element.parentElement;
+      }
+
+      return null;
+    }
+
+    /**
+     * Select a target element and show selector options
+     * @param {HTMLElement} element - Selected target
+     */
+    selectTarget(element) {
+      this.targetElement = element;
+      this.state = 'choosing-selector';
+
+      // Hide target selector
+      this.targetSelector.deactivate();
+
+      // Generate selectors
+      const selectors = this.selectorGenerator.generateSelectors(element);
+      this.availableSelectors = selectors; // Store for later use
+
+      // Show selector chooser
+      this.selectorChooser = document.createElement('selector-chooser');
+      this.selectorChooser.setSelectors(selectors);
+      document.body.appendChild(this.selectorChooser);
+
+      // Handle selector choice
+      this.selectorChooser.addEventListener('selector-chosen', (e) => {
+        this.selectedSelector = e.detail;
+        this.completeSelection();
+      });
+
+      // Handle cancel
+      this.selectorChooser.addEventListener('cancel', () => {
+        this.cleanup();
+      });
+    }
+
+    /**
+     * Find available containers for widget placement
+     */
+    findAvailableContainers(element) {
+      const containers = [element];
+      let current = element.parentElement;
+
+      while (current && current !== document.body) {
+        // Only include semantic or meaningful containers
+        const tag = current.tagName.toLowerCase();
+        const hasId = current.id;
+        const hasMeaningfulClass = current.className &&
+          !current.className.split(' ').every(c => c.startsWith('compose-'));
+
+        if (['article', 'section', 'aside', 'main', 'nav', 'header', 'footer', 'div'].includes(tag) &&
+            (hasId || hasMeaningfulClass || ['article', 'section', 'aside', 'main'].includes(tag))) {
+          containers.push(current);
+        }
+
+        current = current.parentElement;
+      }
+
+      return containers;
+    }
+
+    /**
+     * Reopen the selector chooser for the current target
+     */
+    reopenSelectorChooser() {
+      if (!this.targetElement || !this.availableSelectors) return;
+
+      // Remove any existing selector chooser first
+      if (this.selectorChooser) {
+        this.selectorChooser.remove();
+        this.selectorChooser = null;
+      }
+
+      // Remove any orphaned selector choosers
+      document.querySelectorAll('selector-chooser').forEach(chooser => chooser.remove());
+
+      // Show selector chooser with current selectors
+      this.selectorChooser = document.createElement('selector-chooser');
+      this.selectorChooser.setSelectors(this.availableSelectors);
+      document.body.appendChild(this.selectorChooser);
+
+      // Handle selector choice
+      this.selectorChooser.addEventListener('selector-chosen', (e) => {
+        this.selectedSelector = e.detail;
+        // Update floating menu with new selector
+        this.floatingMenu.setTarget(this.targetElement, this.selectedSelector, this.availableSelectors);
+        // Update widget position
+        this.updateWidgetPosition();
+        // Remove chooser
+        if (this.selectorChooser) {
+          this.selectorChooser.remove();
+          this.selectorChooser = null;
+        }
+      });
+
+      // Handle cancel
+      this.selectorChooser.addEventListener('cancel', () => {
+        if (this.selectorChooser) {
+          this.selectorChooser.remove();
+          this.selectorChooser = null;
+        }
+      });
+    }
+
+    /**
+     * Complete the selection process
+     */
+    completeSelection() {
+      this.state = 'complete';
+
+      // Update floating menu with selection and all available selectors
+      this.floatingMenu.setTarget(this.targetElement, this.selectedSelector, this.availableSelectors);
+
+      // Place the widget with default position
+      this.placeWidget();
+
+      // Remove target selector overlay but keep menu
+      if (this.targetSelector) {
+        this.targetSelector.deactivate();
+      }
+
+      // Remove selector chooser
+      if (this.selectorChooser) {
+        this.selectorChooser.remove();
+        this.selectorChooser = null;
+      }
+
+      // Scroll to widget
+      this.scrollToWidget();
+
+      console.log('Selection complete!');
+      console.log('Target:', this.targetElement);
+      console.log('Selector:', this.selectedSelector);
+      console.log('Position:', this.selectedPosition);
+    }
+
+    /**
+     * Restart target selection for choosing a new target
+     */
+    restartTargetSelection() {
+      // Remove existing widget and blocker
+      document.querySelectorAll('white-paper-widget').forEach(w => w.remove());
+      document.querySelectorAll('.compose-anywhere-blocker').forEach(b => b.remove());
+
+      // Reset state
+      this.state = 'selecting-target';
+      this.targetElement = null;
+      this.selectedSelector = null;
+
+      // Reactivate target selector
+      if (!this.targetSelector) {
+        this.targetSelector = document.createElement('target-selector');
+        document.body.appendChild(this.targetSelector);
+      }
+      this.targetSelector.activate();
+
+      // Re-setup target selection
+      this.setupTargetSelection();
+
+      console.log('Restarted target selection');
+    }
+
+    /**
+     * Scroll widget into view smoothly
+     */
+    scrollToWidget() {
+      const widget = document.querySelector('white-paper-widget');
+      if (widget) {
+        const rect = widget.getBoundingClientRect();
+        const viewHeight = window.innerHeight;
+        const scrollY = window.scrollY;
+
+        // Check if widget is not fully visible
+        if (rect.top < 0 || rect.bottom > viewHeight) {
+          // Calculate center position
+          const targetY = scrollY + rect.top + (rect.height / 2) - (viewHeight / 2);
+
+          window.scrollTo({
+            top: targetY,
+            behavior: 'smooth'
+          });
+        }
+      }
+    }
+
+
+    /**
+     * Update widget position for live preview
+     */
+    updateWidgetPosition() {
+      // Remove existing widget and blocker if any
+      document.querySelectorAll('white-paper-widget').forEach(w => w.remove());
+      document.querySelectorAll('.compose-anywhere-blocker').forEach(b => b.remove());
+
+      // Place widget in new position
+      this.placeWidget();
+
+      // Smooth scroll to widget
+      this.scrollToWidget();
+
+      console.log('Widget position updated:', this.selectedPosition);
+    }
+
+
+    /**
+     * Place the actual widget on the page for preview
+     */
+    placeWidget() {
+      // First, ensure WhitePaperWidget is defined
+      this.ensureWhitePaperWidget();
+
+      // Create the widget (it will render its own content via shadow DOM)
+      const widget = document.createElement('white-paper-widget');
+
+      // Determine insertion method based on position
+      const insertMethod = {
+        'before': 'beforebegin',
+        'after': 'afterend',
+        'inside-start': 'afterbegin',
+        'inside-end': 'beforeend'
+      }[this.selectedPosition] || 'afterend';
+
+      // Insert the widget
+      this.targetElement.insertAdjacentElement(insertMethod, widget);
+
+      // Add a subtle animation for visual feedback
+      widget.style.animation = 'fadeIn 0.3s ease-out';
+
+      // Create an invisible overlay to block interactions
+      this.createInteractionBlocker(widget);
+    }
+
+    /**
+     * Create an overlay element that blocks all interactions with the widget
+     * @param {HTMLElement} widget - The widget to block
+     */
+    createInteractionBlocker(widget) {
+      // Remove any existing blocker
+      const existingBlocker = document.querySelector('.compose-anywhere-blocker');
+      if (existingBlocker) {
+        existingBlocker.remove();
+      }
+
+      // Wait for widget to render
+      setTimeout(() => {
+        const rect = widget.getBoundingClientRect();
+
+        // Create blocker overlay
+        const blocker = document.createElement('div');
+        blocker.className = 'compose-anywhere-blocker';
+        blocker.style.cssText = `
+          position: fixed;
+          left: ${rect.left}px;
+          top: ${rect.top}px;
+          width: ${rect.width}px;
+          height: ${rect.height}px;
+          z-index: 10000;
+          cursor: not-allowed;
+          user-select: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            rgba(0, 0, 0, 0.01) 10px,
+            rgba(0, 0, 0, 0.01) 20px
+          );
+          border-radius: 12px;
+        `;
+
+        // Block all events
+        blocker.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        blocker.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        blocker.addEventListener('mouseup', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        blocker.addEventListener('keydown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        document.body.appendChild(blocker);
+
+        // Update position on scroll/resize
+        const updatePosition = () => {
+          const newRect = widget.getBoundingClientRect();
+          blocker.style.left = `${newRect.left}px`;
+          blocker.style.top = `${newRect.top}px`;
+          blocker.style.width = `${newRect.width}px`;
+          blocker.style.height = `${newRect.height}px`;
+        };
+
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+
+        // Store reference for cleanup
+        this.interactionBlocker = blocker;
+        this.blockUpdateHandler = updatePosition;
+      }, 100);
+    }
+
+    /**
+     * Ensure WhitePaperWidget custom element is defined
+     *
+     * Creates and registers the WhitePaperWidget custom element if not already defined.
+     * This is the actual responsive component that gets placed on the page.
+     *
+     * Features:
+     * - Shadow DOM encapsulation for complete style isolation
+     * - Responsive design using CSS container queries
+     * - Professional form layout with modern styling
+     * - Multiple responsive breakpoints (280px, 400px, 600px, 800px)
+     * - Self-contained with no external dependencies
+     *
+     * The widget serves as both:
+     * 1. Live preview during placement (with interaction blocking)
+     * 2. Final component when embed code is deployed
+     */
+    ensureWhitePaperWidget() {
+      if (!customElements.get('white-paper-widget')) {
+        /**
+         * WhitePaperWidget - Responsive Example Component
+         *
+         * Demonstrates a real-world responsive component with professional styling
+         * and form functionality. Adapts to container width using CSS container queries.
+         *
+         * Responsive Breakpoints:
+         * - 280px: Mobile-first stack layout, minimal spacing
+         * - 400px: Side-by-side layout, illustration appears
+         * - 600px: Enhanced spacing and typography
+         * - 800px+: Centered layout with optimal readability
+         *
+         * @extends HTMLElement
+         */
+        class WhitePaperWidget extends HTMLElement {
+          constructor() {
+            super();
+            this.attachShadow({ mode: 'open' });
+            this.render();
+          }
+
+          render() {
+            this.shadowRoot.innerHTML = `
+              <style>
+                :host {
+                  display: block;
+                  width: 100%;
+                  font-family: system-ui, -apple-system, sans-serif;
+                  margin: 20px 0;
+                }
+
+                .widget {
+                  background: white;
+                  border-radius: 12px;
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                  overflow: hidden;
+                  border: 1px solid #e5e7eb;
+                  max-width: 100%;
+                }
+
+                .header {
+                  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+                  padding: 20px;
+                  color: white;
+                }
+
+                .icon {
+                  font-size: 32px;
+                  margin-bottom: 12px;
+                }
+
+                .title {
+                  margin: 0 0 8px 0;
+                  font-size: 20px;
+                  font-weight: 600;
+                }
+
+                .subtitle {
+                  margin: 0;
+                  opacity: 0.9;
+                  font-size: 14px;
+                }
+
+                .content {
+                  padding: 30px;
+                }
+
+                @media (max-width: 480px) {
+                  .content {
+                    padding: 20px;
+                  }
+
+                  .header {
+                    padding: 16px;
+                  }
+                }
+
+                .description {
+                  color: #4b5563;
+                  margin: 0 0 20px 0;
+                  line-height: 1.6;
+                }
+
+                .input-group {
+                  margin-bottom: 16px;
+                }
+
+                .email-input {
+                  width: 100%;
+                  padding: 10px 14px;
+                  border: 1px solid #d1d5db;
+                  border-radius: 6px;
+                  font-size: 14px;
+                  transition: border-color 0.2s;
+                }
+
+                .email-input:focus {
+                  outline: none;
+                  border-color: #3b82f6;
+                  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                }
+
+                .submit-btn {
+                  width: 100%;
+                  padding: 12px 20px;
+                  background: #3b82f6;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  font-size: 14px;
+                  font-weight: 600;
+                  cursor: pointer;
+                  transition: background 0.2s;
+                }
+
+                .submit-btn:hover {
+                  background: #2563eb;
+                }
+
+                .submit-btn:focus {
+                  outline: none;
+                  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+                }
+              </style>
+
+              <div class="widget">
+                <div class="header">
+                  <div class="icon">📄</div>
+                  <h2 class="title">Download Our White Paper</h2>
+                  <p class="subtitle">Modern Web Development Insights</p>
+                </div>
+
+                <div class="content">
+                  <p class="description">
+                    Get expert insights on building responsive web applications
+                    with the latest technologies.
+                  </p>
+
+                  <form onsubmit="event.preventDefault(); alert('Demo: White paper would be sent to: ' + this.email.value);">
+                    <div class="input-group">
+                      <input
+                        type="email"
+                        name="email"
+                        class="email-input"
+                        placeholder="Enter your email"
+                        required
+                      />
+                    </div>
+                    <button type="submit" class="submit-btn">
+                      Download Now
+                    </button>
+                  </form>
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        customElements.define('white-paper-widget', WhitePaperWidget);
+      }
+    }
+
+    /**
+     * Generate embed code
+     * @returns {string} Embed code
+     */
+    generateEmbedCode() {
+      const positionMethod = {
+        'before': 'beforebegin',
+        'after': 'afterend',
+        'inside': 'beforeend'
+      }[this.selectedPosition] || 'afterend';
+
+      return `<script>
+// Compose Anywhere - Component Placement
+const target = document.querySelector('${this.selectedSelector.selector}');
+if (target) {
+  target.insertAdjacentHTML('${positionMethod}',
+    '<iframe src="https://example.com/widget" width="100%" height="400" style="border:none; max-width:600px;"></iframe>'
+  );
+}
+</script>`;
+    }
+
+    /**
+     * Clean up and restore page state
+     */
+    cleanup() {
+      this.state = 'inactive';
+
+      // Remove event listeners
+      document.removeEventListener('mousemove', this.handleMouseMove);
+      document.removeEventListener('click', this.handleClick, true);
+      document.removeEventListener('keydown', this.handleKeyDown, true);
+
+      // Remove focus listeners
+      this.focusManager.focusableElements.forEach(el => {
+        el.removeEventListener('focus', this.handleFocus);
+        el.removeEventListener('blur', this.handleBlur);
+      });
+
+      // Restore tab indexes
+      this.focusManager.restoreTabIndexes();
+
+      // Remove UI elements
+      if (this.targetSelector) {
+        this.targetSelector.remove();
+        this.targetSelector = null;
+      }
+
+      if (this.floatingMenu) {
+        this.floatingMenu.remove();
+        this.floatingMenu = null;
+      }
+
+      if (this.selectorChooser) {
+        this.selectorChooser.remove();
+        this.selectorChooser = null;
+      }
+
+      // Remove interaction blocker
+      if (this.interactionBlocker) {
+        this.interactionBlocker.remove();
+        this.interactionBlocker = null;
+      }
+
+      // Remove blocker event listeners
+      if (this.blockUpdateHandler) {
+        window.removeEventListener('scroll', this.blockUpdateHandler, true);
+        window.removeEventListener('resize', this.blockUpdateHandler);
+        this.blockUpdateHandler = null;
+      }
+
+      // Clean up any stray blockers
+      document.querySelectorAll('.compose-anywhere-blocker').forEach(b => b.remove());
+
+      // Restore focus
+      this.focusManager.restoreFocus();
+
+      console.log('Compose Anywhere deactivated');
+    }
+  }
+
+  // ===================================================================
+  // INITIALIZATION
+  // ===================================================================
+
+  /**
+   * Initialize and start the Compose Anywhere tool
+   *
+   * Creates the main controller and starts the placement workflow.
+   * The tool becomes active immediately, ready for user interaction.
+   */
+  const controller = new TwoStepPlacementController();
   controller.init();
 
-  // Store reference for debugging
-  window.__composeAnywhereController = controller;
+  // Expose controller for debugging and external access
+  // Available in console as: window.__composeAnywhereV2
+  window.__composeAnywhereV2 = controller;
 })();

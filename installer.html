@@ -3,209 +3,309 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bookmarklet Installer - Compose Anywhere</title>
+    <title>Get Bookmarklet - Compose Anywhere</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-            line-height: 1.6;
-            color: #333;
-        }
-
-        h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-
-        h2 {
-            font-size: 18px;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #e0e0e0;
-            padding-bottom: 5px;
-        }
-
-        .form-group {
-            margin: 15px 0;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        input[type="text"],
-        input[type="number"],
-        input[type="color"],
-        textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: inherit;
-            font-size: 14px;
+        * {
+            margin: 0;
+            padding: 0;
             box-sizing: border-box;
         }
 
-        textarea {
-            min-height: 200px;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 12px;
-        }
-
-        input[type="color"] {
-            width: 60px;
-            height: 35px;
-            padding: 2px;
-        }
-
-        .color-group {
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
             align-items: center;
-            gap: 10px;
-        }
-
-        .button {
-            background: #0066cc;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin: 10px 0;
-        }
-
-        .button:hover {
-            background: #0052a3;
-        }
-
-        #bookmarklet-output {
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin-top: 20px;
-            border-radius: 4px;
-        }
-
-        #bookmarklet-link {
-            display: inline-block;
-            background: #28a745;
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-
-        .instructions {
-            background: #f0f7ff;
-            border: 1px solid #d0e0f0;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-            font-size: 14px;
-        }
-
-        .preview {
-            border: 1px solid #ddd;
+            justify-content: center;
             padding: 20px;
-            margin-top: 20px;
-            border-radius: 4px;
-            min-height: 100px;
         }
 
-        #preview-container {
-            margin-top: 10px;
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            color: #1a202c;
+        }
+
+        .subtitle {
+            color: #718096;
+            margin-bottom: 32px;
+            font-size: 16px;
+        }
+
+        .poc-disclaimer {
+            background: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 16px;
+            border-radius: 4px;
+            margin-bottom: 32px;
+        }
+
+        .poc-disclaimer h3 {
+            color: #c05621;
+            margin-bottom: 8px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .poc-disclaimer p {
+            color: #7c2d12;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .installation-steps {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .installation-steps h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #2d3748;
+        }
+
+        .installation-steps ol {
+            margin-left: 20px;
+            color: #4a5568;
+        }
+
+        .installation-steps li {
+            margin: 12px 0;
+            line-height: 1.6;
+        }
+
+        .installation-steps code {
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        .bookmarklet-container {
+            text-align: center;
+            padding: 32px;
+            background: #eef2ff;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+
+        .bookmarklet-link {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 18px;
+            transition: all 0.2s;
+            cursor: move;
+            user-select: none;
+        }
+
+        .bookmarklet-link:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .bookmarklet-link:active {
+            transform: translateY(0);
+        }
+
+        .drag-hint {
+            margin-top: 16px;
+            color: #4c51bf;
+            font-size: 14px;
+        }
+
+        .alternative-method {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .alternative-method h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #2d3748;
+        }
+
+        .alternative-method ol {
+            margin-left: 20px;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .alternative-method li {
+            margin: 8px 0;
+        }
+
+        .code-container {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 6px;
+            margin: 16px 0;
+            position: relative;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-button:hover {
+            background: #2d3748;
+        }
+
+        .copy-button.copied {
+            background: #48bb78;
+        }
+
+        .test-section {
+            text-align: center;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .test-section a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 12px;
+            font-size: 14px;
+        }
+
+        .test-section a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            .bookmarklet-link {
+                font-size: 16px;
+                padding: 14px 24px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Bookmarklet Installer</h1>
-    <p>Configure your component and generate a custom bookmarklet.</p>
+    <div class="container">
+        <h1>Install Compose Anywhere</h1>
+        <p class="subtitle">Get the bookmarklet for visual component placement</p>
 
-    <div class="instructions">
-        <strong>How this works:</strong>
-        <ol>
-            <li>Customize the component HTML below (or keep the default)</li>
-            <li>Adjust colors and dimensions if needed</li>
-            <li>Click "Generate Bookmarklet"</li>
-            <li>Drag the generated link to your bookmarks bar</li>
-        </ol>
-    </div>
-
-    <form id="config-form">
-        <h2>Component HTML</h2>
-        <div class="form-group">
-            <label for="component-html">Component Code (will be wrapped in Shadow DOM)</label>
-            <textarea id="component-html" placeholder="Enter your component HTML...">
-<div class="widget">
-  <header class="header">
-    <div class="icon">📄</div>
-    <div class="header-content">
-      <h2 class="title">Download Our White Paper</h2>
-      <p class="subtitle">Modern Web Development Insights</p>
-    </div>
-  </header>
-  <div class="content">
-    <p class="description">
-      Get expert insights on building responsive, accessible web applications.
-    </p>
-    <form class="form" onsubmit="event.preventDefault(); alert('Form submitted!')">
-      <input type="email" placeholder="Enter your email" class="email-input" required>
-      <button type="submit" class="submit-btn">Download PDF</button>
-    </form>
-  </div>
-</div></textarea>
+        <div class="poc-disclaimer">
+            <h3>⚠️ POC Notice</h3>
+            <p>
+                This is a proof of concept tool. While functional, it works best
+                on our demo page and may have varying results on different websites.
+                Perfect for experimentation and learning!
+            </p>
         </div>
 
-        <h2>Basic Styling</h2>
-        <div class="form-group">
-            <label for="primary-color">Primary Color</label>
-            <div class="color-group">
-                <input type="color" id="primary-color" value="#3b82f6">
-                <input type="text" id="primary-color-text" value="#3b82f6" pattern="^#[0-9A-Fa-f]{6}$">
+        <div class="installation-steps">
+            <h2>📚 Installation Steps</h2>
+            <ol>
+                <li>Make sure your bookmarks bar is visible (<code>Ctrl/Cmd + Shift + B</code>)</li>
+                <li>Drag the button below to your bookmarks bar</li>
+                <li>Navigate to any website</li>
+                <li>Click the bookmarklet to activate Compose Anywhere</li>
+                <li>Select containers and place components visually!</li>
+            </ol>
+        </div>
+
+        <div class="bookmarklet-container">
+            <a href="javascript:(function(){const s=document.createElement('script');s.src='https://eins78.github.io/compose-anywhere/src/bookmarklet.js';s.onerror=()=>{alert('Failed to load Compose Anywhere. Please try again or check your connection.')};document.head.appendChild(s)})();"
+               class="bookmarklet-link"
+               title="Drag me to your bookmarks bar!"
+               onclick="event.preventDefault(); alert('Please drag this button to your bookmarks bar instead of clicking it.')">
+                🎯 Compose Anywhere
+            </a>
+            <p class="drag-hint">
+                ↑ Drag this button to your bookmarks bar ↑
+            </p>
+        </div>
+
+        <div class="alternative-method">
+            <h3>📋 Alternative: Manual Installation</h3>
+            <ol>
+                <li>Copy the code below</li>
+                <li>Create a new bookmark in your browser</li>
+                <li>Set the name to "Compose Anywhere"</li>
+                <li>Paste the code as the URL</li>
+            </ol>
+            <div class="code-container">
+                <button class="copy-button" onclick="copyCode()">Copy</button>
+                <code id="bookmarklet-code">javascript:(function(){const s=document.createElement('script');s.src='https://eins78.github.io/compose-anywhere/src/bookmarklet.js';s.onerror=()=>{alert('Failed to load Compose Anywhere. Please try again or check your connection.')};document.head.appendChild(s)})()</code>
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="bg-color">Background Color</label>
-            <div class="color-group">
-                <input type="color" id="bg-color" value="#ffffff">
-                <input type="text" id="bg-color-text" value="#ffffff" pattern="^#[0-9A-Fa-f]{6}$">
-            </div>
+        <div class="test-section">
+            <a href="index.html">← Back to Home</a>
+            <a href="demo.html">Try Live Demo</a>
+            <a href="https://github.com/eins78/compose-anywhere">View on GitHub</a>
         </div>
-
-        <h2>Dimensions</h2>
-        <div class="form-group">
-            <label for="min-width">Min Width (px)</label>
-            <input type="number" id="min-width" value="280" min="200" max="800">
-        </div>
-
-        <div class="form-group">
-            <label for="max-width">Max Width (px)</label>
-            <input type="number" id="max-width" value="600" min="300" max="1200">
-        </div>
-
-        <button type="button" class="button" onclick="generateBookmarklet()">Generate Bookmarklet</button>
-    </form>
-
-    <div id="bookmarklet-output" style="display: none;">
-        <h2>Your Custom Bookmarklet</h2>
-        <p>Drag this link to your bookmarks bar:</p>
-        <a id="bookmarklet-link" href="#">Compose Anywhere (Custom)</a>
-        <p><small>Or copy the URL from the link above.</small></p>
     </div>
 
-    <div class="preview">
-        <h2>Preview</h2>
-        <div id="preview-container"></div>
-    </div>
+    <script>
+        function copyCode() {
+            const code = document.getElementById('bookmarklet-code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const button = document.querySelector('.copy-button');
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
 
-    <script type="module" src="js/installer.js"></script>
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy. Please select and copy manually.');
+            });
+        }
+
+        // For local development, update the bookmarklet URL
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            const bookmarkletLink = document.querySelector('.bookmarklet-link');
+            const bookmarkletCode = document.getElementById('bookmarklet-code');
+
+            const localBookmarklet = `javascript:(function(){const s=document.createElement('script');s.src='${window.location.origin}/src/bookmarklet.js';s.onerror=()=>{alert('Failed to load Compose Anywhere. Please try again.')};document.head.appendChild(s)})()`;
+
+            bookmarkletLink.href = localBookmarklet;
+            bookmarkletCode.textContent = localBookmarklet.replace('javascript:', '');
+        }
+    </script>
 </body>
 </html>

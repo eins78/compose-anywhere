@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White Paper Widget - Compose Anywhere</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: transparent;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* Container for the widget */
+        .widget-container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        /* Info box for when viewing directly */
+        .info-box {
+            background: #f0f9ff;
+            border: 2px solid #0284c7;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            color: #0c4a6e;
+        }
+
+        .info-box h2 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+        }
+
+        .info-box p {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .info-box code {
+            display: block;
+            background: #e0f2fe;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        /* Hide info box when in iframe */
+        @media (max-height: 400px) {
+            .info-box {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="widget-container">
+        <!-- Info box shown when viewing directly -->
+        <div class="info-box">
+            <h2>🔧 Widget Iframe Embed</h2>
+            <p>
+                This page serves the White Paper Widget component for iframe embedding.
+                To use it in your website, add this code:
+            </p>
+            <code>&lt;iframe
+  src="https://eins78.github.io/compose-anywhere/widget.html"
+  width="100%"
+  height="400"
+  frameborder="0"
+  style="max-width: 600px; border-radius: 12px;"&gt;
+&lt;/iframe&gt;</code>
+        </div>
+
+        <!-- The actual widget -->
+        <white-paper-widget></white-paper-widget>
+    </div>
+
+    <script>
+        /**
+         * White Paper Widget - Standalone Component
+         *
+         * This is the same responsive component used in the main bookmarklet,
+         * but served standalone for iframe embedding.
+         */
+        class WhitePaperWidget extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                this.render();
+            }
+
+            render() {
+                this.shadowRoot.innerHTML = `
+                    <style>
+                        :host {
+                            display: block;
+                            width: 100%;
+                            font-family: system-ui, -apple-system, sans-serif;
+                            container-type: inline-size;
+                        }
+
+                        .widget {
+                            background: white;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                            overflow: hidden;
+                            border: 1px solid #e5e7eb;
+                            max-width: 100%;
+                        }
+
+                        .header {
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            padding: 20px;
+                            display: flex;
+                            align-items: center;
+                            gap: 15px;
+                        }
+
+                        .icon {
+                            font-size: 32px;
+                            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+                        }
+
+                        .header-content {
+                            flex: 1;
+                        }
+
+                        .title {
+                            font-size: clamp(18px, 4cqi, 24px);
+                            font-weight: bold;
+                            margin: 0 0 4px 0;
+                        }
+
+                        .subtitle {
+                            font-size: clamp(12px, 3cqi, 14px);
+                            opacity: 0.95;
+                            margin: 0;
+                        }
+
+                        .content {
+                            padding: 24px;
+                            display: flex;
+                            gap: 20px;
+                        }
+
+                        .text-content {
+                            flex: 1;
+                        }
+
+                        .description {
+                            color: #4a5568;
+                            line-height: 1.6;
+                            margin: 0 0 20px 0;
+                            font-size: clamp(14px, 3.5cqi, 16px);
+                        }
+
+                        .form {
+                            display: flex;
+                            gap: 10px;
+                        }
+
+                        .email-input {
+                            flex: 1;
+                            padding: 10px 14px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 6px;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                        }
+
+                        .email-input:focus {
+                            outline: none;
+                            border-color: #667eea;
+                            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+                        }
+
+                        .submit-btn {
+                            background: #667eea;
+                            color: white;
+                            border: none;
+                            padding: 10px 20px;
+                            border-radius: 6px;
+                            font-weight: 600;
+                            font-size: 14px;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                            white-space: nowrap;
+                        }
+
+                        .submit-btn:hover {
+                            background: #5a67d8;
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+                        }
+
+                        .submit-btn:active {
+                            transform: translateY(0);
+                        }
+
+                        .illustration {
+                            width: 120px;
+                            height: 120px;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            border-radius: 12px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 48px;
+                            flex-shrink: 0;
+                            display: none;
+                        }
+
+                        /* Responsive breakpoints using container queries */
+                        @container (min-width: 400px) {
+                            .content {
+                                padding: 32px;
+                            }
+
+                            .illustration {
+                                display: flex;
+                                width: 100px;
+                                height: 100px;
+                                font-size: 40px;
+                            }
+                        }
+
+                        @container (min-width: 600px) {
+                            .header {
+                                padding: 24px 32px;
+                            }
+
+                            .content {
+                                padding: 40px;
+                            }
+
+                            .illustration {
+                                width: 140px;
+                                height: 140px;
+                                font-size: 56px;
+                            }
+
+                            .form {
+                                gap: 12px;
+                            }
+                        }
+
+                        /* Mobile-first stack layout */
+                        @container (max-width: 399px) {
+                            .form {
+                                flex-direction: column;
+                            }
+
+                            .submit-btn {
+                                width: 100%;
+                                padding: 12px;
+                            }
+                        }
+
+                        /* Success message styling */
+                        .success-message {
+                            background: #d4edda;
+                            color: #155724;
+                            padding: 12px;
+                            border-radius: 6px;
+                            text-align: center;
+                            display: none;
+                        }
+
+                        .success-message.show {
+                            display: block;
+                            animation: slideIn 0.3s ease-out;
+                        }
+
+                        @keyframes slideIn {
+                            from {
+                                opacity: 0;
+                                transform: translateY(-10px);
+                            }
+                            to {
+                                opacity: 1;
+                                transform: translateY(0);
+                            }
+                        }
+                    </style>
+                    <div class="widget">
+                        <header class="header">
+                            <div class="icon">📄</div>
+                            <div class="header-content">
+                                <h2 class="title">Download Our White Paper</h2>
+                                <p class="subtitle">Modern Web Development Insights</p>
+                            </div>
+                        </header>
+                        <div class="content">
+                            <div class="text-content">
+                                <p class="description">
+                                    Get expert insights on building responsive, accessible web applications
+                                    with modern JavaScript and CSS techniques.
+                                </p>
+                                <div class="success-message" id="successMsg">
+                                    ✅ Thank you! Check your email for the download link.
+                                </div>
+                                <form class="form" id="downloadForm">
+                                    <input
+                                        type="email"
+                                        placeholder="Enter your email"
+                                        class="email-input"
+                                        required
+                                        aria-label="Email address"
+                                    >
+                                    <button type="submit" class="submit-btn">
+                                        Download PDF
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="illustration">
+                                📊
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Add form submission handler
+                const form = this.shadowRoot.getElementById('downloadForm');
+                const successMsg = this.shadowRoot.getElementById('successMsg');
+
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+
+                    // Show success message
+                    successMsg.classList.add('show');
+                    form.style.display = 'none';
+
+                    // Reset after 5 seconds
+                    setTimeout(() => {
+                        successMsg.classList.remove('show');
+                        form.style.display = 'flex';
+                        form.reset();
+                    }, 5000);
+
+                    // Log for demo purposes
+                    console.log('Form submitted:', form.querySelector('input').value);
+                });
+            }
+        }
+
+        // Register the custom element
+        if (!customElements.get('white-paper-widget')) {
+            customElements.define('white-paper-widget', WhitePaperWidget);
+        }
+
+        // Detect if we're in an iframe
+        if (window.self !== window.top) {
+            // Hide the info box via JavaScript as well
+            document.addEventListener('DOMContentLoaded', () => {
+                const infoBox = document.querySelector('.info-box');
+                if (infoBox) {
+                    infoBox.style.display = 'none';
+                }
+                // Adjust body padding for iframe
+                document.body.style.padding = '0';
+                document.body.style.minHeight = 'auto';
+            });
+        }
+    </script>
+</body>
+</html>

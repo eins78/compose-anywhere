@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Compose Anywhere v2 - Two-Step Placement Test</title>
+  <title>Compose Anywhere - Live Demo</title>
   <style>
     * {
       box-sizing: border-box;
@@ -225,17 +225,17 @@
 <body>
   <div class="container">
     <div class="test-controls" data-compose-ignore>
-      <h1>🎯 Compose Anywhere v2 Test</h1>
-      <p>Two-step placement with keyboard navigation support</p>
+      <h1>🎯 Compose Anywhere Live Demo</h1>
+      <p>The bookmarklet is already loaded! Move your mouse to highlight containers or use Tab key to navigate.</p>
 
       <div class="button-group">
-        <button class="btn btn-primary" onclick="loadBookmarkletV2()">
-          <span>🚀</span>
-          <span>Load v2 Bookmarklet</span>
+        <button class="btn btn-primary" onclick="reloadBookmarklet()">
+          <span>🔄</span>
+          <span>Reload Bookmarklet</span>
         </button>
-        <button class="btn btn-secondary" onclick="loadOriginal()">
-          <span>⏮</span>
-          <span>Load Original</span>
+        <button class="btn btn-secondary" onclick="expandMenu()">
+          <span>📋</span>
+          <span>Show Menu</span>
         </button>
         <button class="btn btn-secondary" onclick="clearComponents()">
           <span>🧹</span>
@@ -248,7 +248,7 @@
         Tab through elements → Space/Enter to select target → Arrow keys in position menu → Escape to cancel
       </div>
 
-      <div id="status">Ready to test...</div>
+      <div id="status">✅ Bookmarklet is active! Select a container to begin.</div>
     </div>
 
     <div class="test-content">
@@ -333,56 +333,66 @@
       status.innerHTML = `${icons[type] || ''} ${message}`;
     }
 
-    // Load v2 bookmarklet
-    function loadBookmarkletV2() {
-      updateStatus('Loading Compose Anywhere v2...', 'loading');
+    // Reload bookmarklet
+    function reloadBookmarklet() {
+      updateStatus('Reloading Compose Anywhere...', 'loading');
 
       // Remove any existing instance
       if (window.__composeAnywhereV2) {
         window.__composeAnywhereV2.cleanup();
       }
 
-      const script = document.createElement('script');
-      script.src = '../src/bookmarklet-v2.js';
-      script.onload = () => {
-        updateStatus('Compose Anywhere v2 loaded! Use Tab key or mouse to select targets.', 'success');
-      };
-      script.onerror = () => {
-        updateStatus('Failed to load bookmarklet v2', 'error');
-      };
-      document.head.appendChild(script);
+      // Clear all components first
+      clearComponents();
+
+      // Reload after a short delay
+      setTimeout(() => {
+        loadBookmarklet();
+      }, 100);
     }
 
-    // Load original bookmarklet
-    function loadOriginal() {
-      updateStatus('Loading original bookmarklet...', 'loading');
-
-      // Remove any existing instance
-      if (window.__composeAnywhereController) {
-        window.__composeAnywhereController.cleanup();
+    // Expand the floating menu
+    function expandMenu() {
+      const menu = document.querySelector('floating-menu');
+      if (menu) {
+        menu.expand();
+        updateStatus('Menu expanded', 'success');
+      } else {
+        updateStatus('Please select a target first', 'info');
       }
+    }
 
+    // Load bookmarklet function
+    function loadBookmarklet() {
       const script = document.createElement('script');
-      script.src = '../src/bookmarklet.js';
+      script.src = './src/bookmarklet.js';
       script.onload = () => {
-        updateStatus('Original bookmarklet loaded! Move mouse to see preview.', 'success');
+        updateStatus('Compose Anywhere loaded! Select any container to begin.', 'success');
+
+        // Auto-expand menu after first selection
+        setTimeout(() => {
+          const checkForMenu = setInterval(() => {
+            const menu = document.querySelector('floating-menu');
+            if (menu) {
+              menu.expand();
+              clearInterval(checkForMenu);
+            }
+          }, 500);
+        }, 1000);
       };
       script.onerror = () => {
-        updateStatus('Failed to load original bookmarklet', 'error');
+        updateStatus('Failed to load bookmarklet', 'error');
       };
       document.head.appendChild(script);
     }
 
     // Clear all placed components
     function clearComponents() {
-      // Remove v2 elements
-      document.querySelectorAll('target-selector, placement-position-menu, selector-chooser').forEach(el => el.remove());
-
-      // Remove v1 elements
+      // Remove all compose-anywhere elements
+      document.querySelectorAll('target-selector, placement-position-menu, selector-chooser, floating-menu').forEach(el => el.remove());
       document.querySelectorAll('component-preview, placement-wrapper, placement-menu, embed-modal').forEach(el => el.remove());
-
-      // Remove white paper widgets
       document.querySelectorAll('white-paper-widget').forEach(el => el.remove());
+      document.querySelectorAll('.compose-anywhere-blocker').forEach(el => el.remove());
 
       updateStatus('All components cleared', 'success');
     }
@@ -390,12 +400,12 @@
     // Keyboard shortcut for quick testing
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === '2') {
+        if (e.key === 'r') {
           e.preventDefault();
-          loadBookmarkletV2();
-        } else if (e.key === '1') {
+          reloadBookmarklet();
+        } else if (e.key === 'm') {
           e.preventDefault();
-          loadOriginal();
+          expandMenu();
         } else if (e.key === '0') {
           e.preventDefault();
           clearComponents();
@@ -405,9 +415,16 @@
 
     // Show keyboard shortcuts on load
     console.log('🎯 Keyboard Shortcuts:');
-    console.log('Ctrl/Cmd + 2: Load v2 bookmarklet');
-    console.log('Ctrl/Cmd + 1: Load original bookmarklet');
+    console.log('Ctrl/Cmd + R: Reload bookmarklet');
+    console.log('Ctrl/Cmd + M: Show menu');
     console.log('Ctrl/Cmd + 0: Clear all components');
+
+    // Auto-load the bookmarklet on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        loadBookmarklet();
+      }, 500);
+    });
   </script>
 </body>
 </html>

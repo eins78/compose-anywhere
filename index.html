@@ -3,109 +3,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compose Anywhere - POC</title>
+    <title>Compose Anywhere - Visual Component Placement POC</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            max-width: 600px;
-            margin: 40px auto;
-            padding: 20px;
             line-height: 1.6;
             color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
 
         h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
+            font-size: 28px;
+            margin-bottom: 8px;
+            color: #1a202c;
         }
 
         .subtitle {
-            color: #666;
-            margin-bottom: 30px;
+            color: #718096;
+            margin-bottom: 8px;
+            font-size: 16px;
         }
 
-        a {
-            color: #0066cc;
+        .poc-badge {
+            display: inline-block;
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .section {
-            margin: 30px 0;
+        .description {
+            margin-bottom: 32px;
+            color: #4a5568;
+            line-height: 1.7;
         }
 
-        code {
-            background: #f4f4f4;
-            padding: 2px 5px;
-            border-radius: 3px;
+        .features {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 32px;
+        }
+
+        .features h3 {
             font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #718096;
+            margin-bottom: 12px;
+        }
+
+        .features ul {
+            list-style: none;
+        }
+
+        .features li {
+            padding: 8px 0;
+            color: #4a5568;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .features li::before {
+            content: "✓";
+            color: #48bb78;
+            font-weight: bold;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .actions {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
         }
 
         .button {
-            display: inline-block;
-            background: #0066cc;
-            color: white;
-            padding: 10px 20px;
+            flex: 1;
+            display: block;
+            padding: 12px 24px;
             text-decoration: none;
-            border-radius: 4px;
-            margin: 10px 0;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+            transition: all 0.2s;
         }
 
-        .button:hover {
-            background: #0052a3;
+        .button-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .button-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .button-secondary:hover {
+            background: #f7fafc;
+            transform: translateY(-1px);
+        }
+
+        .disclaimer {
+            background: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 16px;
+            border-radius: 4px;
+            margin-bottom: 24px;
+        }
+
+        .disclaimer h4 {
+            color: #c05621;
+            margin-bottom: 8px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .disclaimer p {
+            color: #7c2d12;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .links {
+            text-align: center;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 12px;
+            font-size: 14px;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 480px) {
+            .actions {
+                flex-direction: column;
+            }
+
+            .container {
+                padding: 30px 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Compose Anywhere</h1>
-    <p class="subtitle">A proof of concept for visual component placement on any website</p>
+    <div class="container">
+        <h1>Compose Anywhere</h1>
+        <p class="subtitle">Visual Component Placement Tool</p>
+        <span class="poc-badge">Proof of Concept</span>
 
-    <div class="section">
-        <h2>What is this?</h2>
-        <p>
-            A simple tool that lets you visually place components (forms, widgets, etc.) on any website
-            and generate the embed code. It's currently just a POC exploring the idea.
+        <p class="description">
+            Drop any component on any website with smart container detection.
+            A bookmarklet-based tool that lets you visually place responsive
+            web components and generate instant embed code.
         </p>
-    </div>
 
-    <div class="section">
-        <h2>How it works</h2>
-        <ol>
-            <li>Configure your component using our basic installer</li>
-            <li>Generate a bookmarklet with your settings</li>
-            <li>Use the bookmarklet on any website to place your component</li>
-            <li>Get the embed code to make it permanent</li>
-        </ol>
-    </div>
+        <div class="disclaimer">
+            <h4>⚠️ Experimental POC</h4>
+            <p>
+                This is a proof of concept demonstrating visual component placement.
+                While functional, it's optimized for our demo environment and may have
+                varying results on different websites. Use for experimentation and inspiration!
+            </p>
+        </div>
 
-    <div class="section">
-        <h2>Try it</h2>
-        <p>
-            <a href="installer.html" class="button">Open Installer</a>
-        </p>
-        <p>
-            Or use the default bookmarklet (drag to bookmarks bar):<br>
-            <a href="javascript:(function(){const s=document.createElement('script');s.src='src/bookmarklet.js';document.head.appendChild(s)})()">
-                Compose Anywhere (Default)
+        <div class="features">
+            <h3>Features</h3>
+            <ul>
+                <li>Smart container detection with visual feedback</li>
+                <li>Live component preview with real interactivity</li>
+                <li>Multiple placement positions (before/after/inside)</li>
+                <li>Instant embed code generation</li>
+                <li>Zero dependencies, pure JavaScript</li>
+                <li>Shadow DOM for complete style isolation</li>
+            </ul>
+        </div>
+
+        <div class="actions">
+            <a href="demo.html" class="button button-primary">
+                Try Live Demo
             </a>
-        </p>
-    </div>
+            <a href="installer.html" class="button button-secondary">
+                Get Bookmarklet
+            </a>
+        </div>
 
-    <div class="section">
-        <h2>Test pages</h2>
-        <ul>
-            <li><a href="examples/test.html">Basic test page</a></li>
-            <li><a href="examples/responsive-demo.html">Responsive demo</a></li>
-        </ul>
-    </div>
-
-    <div class="section">
-        <h2>Notes</h2>
-        <p>
-            This is an early POC. The installer lets you customize the component HTML and basic styling.
-            Components use Shadow DOM for isolation and work on most modern websites.
-        </p>
-        <p>
-            <a href="https://github.com/eins78/compose-anywhere">View on GitHub</a>
-        </p>
+        <div class="links">
+            <a href="https://github.com/eins78/compose-anywhere">GitHub</a>
+            <a href="widget.html">Widget Only</a>
+            <a href="https://github.com/eins78/compose-anywhere#readme">Documentation</a>
+        </div>
     </div>
 </body>
 </html>

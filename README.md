@@ -35,7 +35,7 @@ compose-anywhere/
 │       └── white-paper-widget.js # Example responsive component
 ├── examples/
 │   ├── test.html            # Basic test page for development
-│   ├── responsive-demo.html # Responsive component showcase
+│   └── generated/           # Generated sample files
 │   └── generated/           # Generated sample files
 ├── scripts/
 │   └── create-bookmarklet.js # Convert to bookmarklet URL
@@ -120,12 +120,12 @@ Modern browsers support CSS container queries, enabling components to respond to
 
 ### Testing Responsive Behavior
 
-Use the **responsive demo page** (`examples/responsive-demo.html`) to test:
+Use the **demo page** (`demo.html`) to test the bookmarklet with:
 
-1. Different container widths (280px to 800px)
-2. Various layout contexts (flexbox, grid, traditional)
-3. Real-world scenarios (hero sections, sidebars, articles)
-4. Container query demonstrations
+1. Pre-loaded bookmarklet functionality
+2. Various container types (hero sections, sidebars, articles)
+3. Live component placement and preview
+4. Floating menu configuration
 
 ## Development Setup
 
