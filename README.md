@@ -122,7 +122,7 @@ Modern browsers support CSS container queries, enabling components to respond to
 
 Use the **demo page** (`demo.html`) to test the bookmarklet with:
 
-1. Pre-loaded bookmarklet functionality
+1. Click-to-load functionality (simulates real bookmarklet usage)
 2. Various container types (hero sections, sidebars, articles)
 3. Live component placement and preview
 4. Floating menu configuration

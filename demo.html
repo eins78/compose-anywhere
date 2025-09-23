@@ -226,12 +226,12 @@
   <div class="container">
     <div class="test-controls" data-compose-ignore>
       <h1>🎯 Compose Anywhere Live Demo</h1>
-      <p>The bookmarklet is already loaded! Move your mouse to highlight containers or use Tab key to navigate.</p>
+      <p>Click the button below to load the bookmarklet - just like clicking a real bookmarklet in your browser!</p>
 
       <div class="button-group">
-        <button class="btn btn-primary" onclick="reloadBookmarklet()">
-          <span>🔄</span>
-          <span>Reload Bookmarklet</span>
+        <button class="btn btn-primary" onclick="loadOrReloadBookmarklet()" id="load-button">
+          <span>🚀</span>
+          <span>Load Bookmarklet</span>
         </button>
         <button class="btn btn-secondary" onclick="expandMenu()">
           <span>📋</span>
@@ -248,7 +248,7 @@
         Tab through elements → Space/Enter to select target → Arrow keys in position menu → Escape to cancel
       </div>
 
-      <div id="status">✅ Bookmarklet is active! Select a container to begin.</div>
+      <div id="status">Ready - Click "Load Bookmarklet" to begin</div>
     </div>
 
     <div class="test-content">
@@ -333,22 +333,29 @@
       status.innerHTML = `${icons[type] || ''} ${message}`;
     }
 
-    // Reload bookmarklet
-    function reloadBookmarklet() {
-      updateStatus('Reloading Compose Anywhere...', 'loading');
+    // Load or reload bookmarklet
+    function loadOrReloadBookmarklet() {
+      const button = document.getElementById('load-button');
+      const isReload = button.querySelector('span:last-child').textContent === 'Reload Bookmarklet';
 
-      // Remove any existing instance
-      if (window.__composeAnywhereV2) {
-        window.__composeAnywhereV2.cleanup();
-      }
+      if (isReload) {
+        updateStatus('Reloading Compose Anywhere...', 'loading');
 
-      // Clear all components first
-      clearComponents();
+        // Remove any existing instance
+        if (window.__composeAnywhereV2) {
+          window.__composeAnywhereV2.cleanup();
+        }
 
-      // Reload after a short delay
-      setTimeout(() => {
+        // Clear all components first
+        clearComponents();
+
+        // Reload after a short delay
+        setTimeout(() => {
+          loadBookmarklet();
+        }, 100);
+      } else {
         loadBookmarklet();
-      }, 100);
+      }
     }
 
     // Expand the floating menu
@@ -364,21 +371,17 @@
 
     // Load bookmarklet function
     function loadBookmarklet() {
+      updateStatus('Loading Compose Anywhere...', 'loading');
+
       const script = document.createElement('script');
       script.src = './src/bookmarklet.js';
       script.onload = () => {
-        updateStatus('Compose Anywhere loaded! Select any container to begin.', 'success');
+        updateStatus('Compose Anywhere loaded! Move your mouse to highlight containers or use Tab key.', 'success');
 
-        // Auto-expand menu after first selection
-        setTimeout(() => {
-          const checkForMenu = setInterval(() => {
-            const menu = document.querySelector('floating-menu');
-            if (menu) {
-              menu.expand();
-              clearInterval(checkForMenu);
-            }
-          }, 500);
-        }, 1000);
+        // Update button to show reload option
+        const button = document.getElementById('load-button');
+        button.querySelector('span:first-child').textContent = '🔄';
+        button.querySelector('span:last-child').textContent = 'Reload Bookmarklet';
       };
       script.onerror = () => {
         updateStatus('Failed to load bookmarklet', 'error');
@@ -400,9 +403,9 @@
     // Keyboard shortcut for quick testing
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'r') {
+        if (e.key === 'l') {
           e.preventDefault();
-          reloadBookmarklet();
+          loadOrReloadBookmarklet();
         } else if (e.key === 'm') {
           e.preventDefault();
           expandMenu();
@@ -415,16 +418,9 @@
 
     // Show keyboard shortcuts on load
     console.log('🎯 Keyboard Shortcuts:');
-    console.log('Ctrl/Cmd + R: Reload bookmarklet');
+    console.log('Ctrl/Cmd + L: Load/reload bookmarklet');
     console.log('Ctrl/Cmd + M: Show menu');
     console.log('Ctrl/Cmd + 0: Clear all components');
-
-    // Auto-load the bookmarklet on page load
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        loadBookmarklet();
-      }, 500);
-    });
   </script>
 </body>
 </html>
