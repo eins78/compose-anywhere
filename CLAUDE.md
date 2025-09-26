@@ -21,6 +21,9 @@ claude mcp add puppeteer  # Or use the .mcp.json file
 # Start local server (REQUIRED for testing)
 pnpm serve   # Runs on http://localhost:8080
 
+# Build the bookmarklet (NEW!)
+pnpm build   # Creates minified bookmarklet in dist/
+
 # Use automated test workflow (FASTEST)
 chmod +x test-workflow.sh
 ./test-workflow.sh

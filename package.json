@@ -16,11 +16,12 @@
     "test:multi": "claude --dangerously-skip-permissions 'Test on 5 different websites'",
     "dev": "claude 'Start interactive development mode with hot reload'",
     "docs": "claude 'Generate documentation from TSDoc comments'",
-    "bookmarklet": "node scripts/create-bookmarklet.js",
+    "build": "node scripts/build-bookmarklet.js",
+    "build:legacy": "node scripts/create-bookmarklet.js",
     "serve": "serve . -p 8080",
     "review": "./.claude/commands/review.sh",
     "format": "prettier --write '**/*.{js,json,md}'",
-    "clean": "rm -rf test-results/ screenshots/ docs/generated/ examples/generated/"
+    "clean": "rm -rf test-results/ screenshots/ docs/generated/ examples/generated/ dist/"
   },
   "keywords": [
     "component",
@@ -44,9 +45,11 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
+    "bookmarklet": "^3.0.0",
     "prettier": "^3.2.4",
     "puppeteer": "^24.22.0",
-    "serve": "^14.2.1"
+    "serve": "^14.2.1",
+    "terser": "^5.44.0"
   },
   "engines": {
     "node": ">=16.0.0"
@@ -73,5 +76,6 @@
       "preferred": "test-workflow.sh",
       "updateDocs": true
     }
-  }
+  },
+  "packageManager": "pnpm@9.8.0+sha512.8e4c3550fb500e808dbc30bb0ce4dd1eb614e30b1c55245f211591ec2cdf9c611cabd34e1364b42f564bd54b3945ed0f49d61d1bbf2ec9bd74b866fcdc723276"
 }
