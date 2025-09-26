@@ -111,6 +111,10 @@ async function build() {
 }
 
 function generateInstallerHTML(bookmarkletCode, stats) {
+  // Note: Due to size constraints (118KB), we recommend using the remote loading approach
+  // The bundled version is kept for reference but not exposed in the UI
+  const remoteBookmarklet = `javascript:(function(){const s=document.createElement('script');s.src='https://eins78.github.io/compose-anywhere/src/bookmarklet.js';s.onerror=()=>{alert('Failed to load Compose Anywhere. Please try again or check your connection.')};document.head.appendChild(s)})();`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -361,7 +365,7 @@ function generateInstallerHTML(bookmarkletCode, stats) {
         </div>
 
         <div class="bookmarklet-container">
-            <a href="${bookmarkletCode}"
+            <a href="${remoteBookmarklet}"
                class="bookmarklet-link"
                onclick="alert('⚠️ Drag this button to your bookmarks bar!\\n\\nDon\\'t click it - drag it!'); return false;">
                 Compose Anywhere
@@ -412,18 +416,18 @@ function generateInstallerHTML(bookmarkletCode, stats) {
             </div>
         </div>
 
-        ${stats.bookmarkletSize > 30000 ? `
-        <div class="size-warning">
-            <strong>Note:</strong> The bookmarklet is ${(stats.bookmarkletSize / 1024).toFixed(1)}KB.
-            Some older browsers may have issues with bookmarklets larger than 30KB.
-            Modern browsers (Chrome, Firefox, Safari, Edge) should work fine.
+        <div class="alternative-method" style="background: #f9fafb; border-radius: 8px; padding: 20px; margin-top: 24px;">
+            <h3 style="font-size: 16px; margin-bottom: 12px; color: #2d3748;">📋 Alternative: Manual Installation</h3>
+            <ol style="margin-left: 20px; color: #4a5568; font-size: 14px;">
+                <li>Copy the code below</li>
+                <li>Create a new bookmark in your browser</li>
+                <li>Set the name to "Compose Anywhere"</li>
+                <li>Paste the code as the URL</li>
+            </ol>
+            <div style="background: #1a202c; color: #e2e8f0; padding: 16px; border-radius: 6px; margin: 16px 0; position: relative; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; overflow-x: auto;">
+                <code>${remoteBookmarklet}</code>
+            </div>
         </div>
-        ` : ''}
-
-        <details>
-            <summary>View Bookmarklet Code (first 500 chars)</summary>
-            <code>${bookmarkletCode.substring(0, 500)}...</code>
-        </details>
 
         <div class="footer">
             <p>
