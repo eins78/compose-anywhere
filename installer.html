@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Get Bookmarklet - Compose Anywhere</title>
+    <script>
+        // Load the bundled bookmarklet URL if available
+        let BUNDLED_BOOKMARKLET = null;
+        fetch('dist/bookmarklet.url.txt')
+            .then(r => r.text())
+            .then(url => {
+                BUNDLED_BOOKMARKLET = url;
+                // Update UI if page is already loaded
+                if (document.readyState === 'complete') {
+                    updateBookmarkletOptions();
+                }
+            })
+            .catch(() => console.log('Bundled bookmarklet not available'));
+    </script>
     <style>
         * {
             margin: 0;
@@ -234,6 +248,15 @@
             </p>
         </div>
 
+        <div id="bookmarklet-size-warning" style="display:none;" class="poc-disclaimer">
+            <h3>📦 Large Bookmarklet Warning</h3>
+            <p>
+                The bundled bookmarklet is <span id="size-info"></span>KB and may not work in all browsers.
+                Some browsers have size limits for bookmarklets. If you experience issues,
+                use the "Remote Loading" option below instead.
+            </p>
+        </div>
+
         <div class="installation-steps">
             <h2>📚 Installation Steps</h2>
             <ol>
@@ -246,14 +269,43 @@
         </div>
 
         <div class="bookmarklet-container">
-            <a href="javascript:(function(){const s=document.createElement('script');s.src='https://eins78.github.io/compose-anywhere/src/bookmarklet.js';s.onerror=()=>{alert('Failed to load Compose Anywhere. Please try again or check your connection.')};document.head.appendChild(s)})();"
-               class="bookmarklet-link"
-               title="Drag me to your bookmarks bar!"
-               onclick="event.preventDefault(); alert('Please drag this button to your bookmarks bar instead of clicking it.')">
-                🎯 Compose Anywhere
-            </a>
+            <h3 style="margin-bottom: 20px; color: #2d3748;">Choose Your Installation Method:</h3>
+
+            <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+                <!-- Bundled Version -->
+                <div style="flex: 1; min-width: 200px;">
+                    <h4 style="color: #4a5568; margin-bottom: 12px; font-size: 14px;">Self-Contained (Offline)</h4>
+                    <a href="#"
+                       id="bundled-bookmarklet"
+                       class="bookmarklet-link"
+                       style="background: #48bb78; font-size: 16px; padding: 12px 20px;"
+                       title="Drag me to your bookmarks bar!"
+                       onclick="event.preventDefault(); alert('Please drag this button to your bookmarks bar instead of clicking it.')">
+                        📦 Bundled
+                    </a>
+                    <p style="font-size: 12px; color: #718096; margin-top: 8px;">
+                        Works offline, but large size
+                    </p>
+                </div>
+
+                <!-- Remote Loading Version -->
+                <div style="flex: 1; min-width: 200px;">
+                    <h4 style="color: #4a5568; margin-bottom: 12px; font-size: 14px;">Remote Loading (Recommended)</h4>
+                    <a href="javascript:(function(){const s=document.createElement('script');s.src='https://eins78.github.io/compose-anywhere/src/bookmarklet.js';s.onerror=()=>{alert('Failed to load Compose Anywhere. Please try again or check your connection.')};document.head.appendChild(s)})();"
+                       id="remote-bookmarklet"
+                       class="bookmarklet-link"
+                       title="Drag me to your bookmarks bar!"
+                       onclick="event.preventDefault(); alert('Please drag this button to your bookmarks bar instead of clicking it.')">
+                        🌐 Remote
+                    </a>
+                    <p style="font-size: 12px; color: #718096; margin-top: 8px;">
+                        Smaller, requires internet
+                    </p>
+                </div>
+            </div>
+
             <p class="drag-hint">
-                ↑ Drag this button to your bookmarks bar ↑
+                ↑ Drag either button to your bookmarks bar ↑
             </p>
         </div>
 
@@ -296,16 +348,48 @@
             });
         }
 
-        // For local development, update the bookmarklet URL
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            const bookmarkletLink = document.querySelector('.bookmarklet-link');
+        function updateBookmarkletOptions() {
+            const bundledLink = document.getElementById('bundled-bookmarklet');
+            const remoteLink = document.getElementById('remote-bookmarklet');
             const bookmarkletCode = document.getElementById('bookmarklet-code');
+            const sizeWarning = document.getElementById('bookmarklet-size-warning');
+            const sizeInfo = document.getElementById('size-info');
 
-            const localBookmarklet = `javascript:(function(){const s=document.createElement('script');s.src='${window.location.origin}/src/bookmarklet.js';s.onerror=()=>{alert('Failed to load Compose Anywhere. Please try again.')};document.head.appendChild(s)})()`;
+            // Update bundled bookmarklet if available
+            if (BUNDLED_BOOKMARKLET) {
+                bundledLink.href = BUNDLED_BOOKMARKLET;
 
-            bookmarkletLink.href = localBookmarklet;
-            bookmarkletCode.textContent = localBookmarklet.replace('javascript:', '');
+                // Show size warning if bookmarklet is large
+                const sizeKB = Math.round(BUNDLED_BOOKMARKLET.length / 1024);
+                if (sizeKB > 30) {
+                    sizeWarning.style.display = 'block';
+                    sizeInfo.textContent = sizeKB;
+                }
+
+                // Update the default code block to remote version
+                const remoteCode = remoteLink.href.replace('javascript:', '');
+                if (bookmarkletCode) bookmarkletCode.textContent = remoteCode;
+            } else {
+                // Hide bundled option if not available
+                bundledLink.parentElement.style.display = 'none';
+            }
+
+            // For local development, update URLs
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                const localRemote = `javascript:(function(){const s=document.createElement('script');s.src='${window.location.origin}/src/bookmarklet.js';s.onerror=()=>{alert('Failed to load Compose Anywhere. Please try again.')};document.head.appendChild(s)})()`;
+
+                remoteLink.href = localRemote;
+                if (bookmarkletCode) bookmarkletCode.textContent = localRemote.replace('javascript:', '');
+
+                // For local dev, use the dist version for bundled if available
+                if (BUNDLED_BOOKMARKLET) {
+                    bundledLink.href = BUNDLED_BOOKMARKLET;
+                }
+            }
         }
+
+        // Update when page loads
+        document.addEventListener('DOMContentLoaded', updateBookmarkletOptions);
     </script>
 </body>
 </html>

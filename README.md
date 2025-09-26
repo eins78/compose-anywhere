@@ -38,12 +38,16 @@ compose-anywhere/
 │   └── generated/           # Generated sample files
 │   └── generated/           # Generated sample files
 ├── scripts/
-│   └── create-bookmarklet.js # Convert to bookmarklet URL
+│   ├── build-bookmarklet.js  # Production build with minification
+│   └── create-bookmarklet.js # Legacy build script
 ├── docs/
 │   ├── platform-integration.md
 │   └── brand-guidelines.md
 ├── screenshots/             # Test screenshots and demos
-├── dist/                    # Generated files
+├── dist/                    # Build output (git-ignored)
+│   ├── bookmarklet.min.js   # Minified JavaScript
+│   ├── bookmarklet.url.txt  # Bookmarklet URL
+│   └── installer.html       # Generated installer page
 ├── package.json
 ├── .mcp.json                # MCP configuration for Claude Code
 ├── CLAUDE.md                # Claude Code workflow documentation
@@ -129,24 +133,36 @@ Use the **demo page** (`demo.html`) to test the bookmarklet with:
 
 ## Development Setup
 
-### No Build Step (Current)
+### Build Process
 
 1. **Clone and setup:**
    ```bash
    git clone https://github.com/eins78/compose-anywhere.git
    cd compose-anywhere
+   pnpm install  # Install dependencies
    ```
 
 2. **Development:**
    - Edit `src/bookmarklet.js` directly
-   - Use TSDoc comments for future TypeScript migration
-   - Test by pasting code in browser console
+   - Use TSDoc comments for documentation
+   - Test locally with `pnpm serve`
 
-3. **Create bookmarklet:**
-   ```javascript
-   // Wrap code for bookmarklet
-   javascript:(function(){/* paste minified code here */})();
+3. **Build the bookmarklet:**
+   ```bash
+   pnpm build  # Creates minified bookmarklet in dist/
    ```
+
+   This generates:
+   - `dist/bookmarklet.min.js` - Minified source code
+   - `dist/bookmarklet.url.txt` - Complete bookmarklet URL
+   - `dist/installer.html` - Installation page
+
+4. **Installation Options:**
+   - **Bundled**: Self-contained bookmarklet (works offline, larger size)
+   - **Remote**: Loads from GitHub Pages (smaller, requires internet)
+
+   ⚠️ **Note**: The bundled version is ~120KB, which exceeds some browser limits.
+   Most users should use the remote loading version for better compatibility.
 
 ### MCP Setup for Claude Code CLI
 
